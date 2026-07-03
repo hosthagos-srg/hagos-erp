@@ -24,6 +24,10 @@ class RacikController extends Controller
         $antrean = PenjualanDetail::select('penjualan_details.*', 'penjualan_headers.channel', 'penjualan_headers.tgl_pesanan', 'penjualan_headers.status_pesanan', 'penjualan_headers.nama_pembeli', 'penjualan_headers.external_order_id')
             ->join('penjualan_headers', 'penjualan_details.internal_id', '=', 'penjualan_headers.internal_id')
             ->where('penjualan_headers.status_pesanan', 'Menunggu')
+            // Hanya baris yang BELUM diracik. Penting untuk pesanan multi-baris yang
+            // sebagian barisnya sudah diproses (header masih 'Menunggu'): baris yang
+            // sudah ber-HPP jangan muncul lagi (mencegah salah hitung sisa & re-select).
+            ->whereNull('penjualan_details.hpp_satuan')
             ->orderBy('penjualan_headers.tgl_pesanan')
             ->orderBy('penjualan_details.created_at')
             ->paginate(50);
@@ -183,6 +187,9 @@ class RacikController extends Controller
 
             $detail = \App\Models\PenjualanDetail::find($detailId);
             if (!$detail) continue;
+            // Baris yang sudah diracik (HPP terisi) tidak butuh stok lagi — jangan
+            // dihitung agar defisit tidak membengkak & blokir tidak berlebihan.
+            if (!is_null($detail->hpp_satuan)) continue;
 
             $skuId = $data['sku_id'] ?? $detail->sku_id;
             $qty = (int) $detail->qty;
