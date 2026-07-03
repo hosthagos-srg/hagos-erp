@@ -35,4 +35,15 @@ return [
         ],
     ],
 
+    /*
+    | API website e-commerce Hagos (hagosperfume.com) — ERP menarik pesanan (pull).
+    | Base URL contoh produksi: https://hagosperfume.com/api
+    */
+    'hagos_web' => [
+        'base_url' => env('HAGOS_WEB_BASE_URL', 'https://hagosperfume.com/api'),
+        'login'    => env('HAGOS_WEB_LOGIN'),     // email/username akun service di website
+        'password' => env('HAGOS_WEB_PASSWORD'),  // password akun service
+        'akun_kas' => env('HAGOS_WEB_AKUN_KAS', 'Midtrans'), // akun kas tujuan uang masuk
+    ],
+
 ];
