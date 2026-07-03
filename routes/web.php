@@ -33,6 +33,7 @@ Route::post('/penjualan', [PenjualanController::class, 'store'])->name('penjuala
 Route::get('/penjualan/{internal_id}', [PenjualanController::class, 'show'])->name('penjualan.show');
 Route::post('/penjualan/{internal_id}/status', [PenjualanController::class, 'updateStatus'])->name('penjualan.update_status');
 Route::post('/penjualan/{internal_id}/extra-tester', [PenjualanController::class, 'updateExtraTester'])->name('penjualan.update_tester');
+Route::delete('/penjualan/{internal_id}', [PenjualanController::class, 'destroy'])->name('penjualan.destroy');
 
 // Pelanggan / Reseller (CRM)
 Route::get('/pelanggan', [App\Http\Controllers\PelangganController::class, 'index'])->name('pelanggan.index');

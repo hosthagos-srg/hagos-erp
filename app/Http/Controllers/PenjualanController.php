@@ -516,4 +516,46 @@ class PenjualanController extends Controller
 
         return redirect()->back()->with('success', 'Bonus tester berhasil diperbarui ke ' . $extra . ' pcs.');
     }
+
+    /**
+     * HAPUS BERSIH pesanan — seperti tidak pernah diinput. Balik semua efek:
+     * stok (bibit/komponen/T11) bila sudah diracik, mutasi kas, log stok jadi,
+     * log produksi, audit; lalu hapus detail & header. Butuh konfirmasi di UI.
+     */
+    public function destroy($internal_id, \App\Services\RacikService $racikService)
+    {
+        $header = PenjualanHeader::where('internal_id', $internal_id)->first();
+        if (!$header) {
+            return redirect()->route('penjualan.index')->with('error', 'Pesanan tidak ditemukan.');
+        }
+
+        try {
+            DB::transaction(function () use ($header, $internal_id, $racikService) {
+                // 1. Kembalikan stok yang terpotong saat racik (aman bila belum diracik)
+                $racikService->kembalikanStokRacik($header);
+
+                // 2. Hapus jejak kas & log terkait pesanan ini
+                \App\Models\MutasiKas::where('ref_id', $internal_id)->delete();
+                \App\Models\StokJadiLog::where('ref_id', $internal_id)->delete();
+                \App\Models\ProduksiLog::where('detail_text', 'like', '%' . $internal_id . '%')->delete();
+
+                // 3. Hapus audit trail header & detail-nya
+                $detailIds = PenjualanDetail::where('internal_id', $internal_id)->pluck('detail_id')->all();
+                \App\Models\AuditLog::where('auditable_type', \App\Models\PenjualanHeader::class)
+                    ->where('auditable_id', $internal_id)->delete();
+                if (!empty($detailIds)) {
+                    \App\Models\AuditLog::where('auditable_type', \App\Models\PenjualanDetail::class)
+                        ->whereIn('auditable_id', $detailIds)->delete();
+                }
+
+                // 4. Hapus baris & header
+                PenjualanDetail::where('internal_id', $internal_id)->delete();
+                $header->delete();
+            });
+
+            return redirect()->route('penjualan.index')->with('success', 'Pesanan dihapus bersih. Stok & kas dikembalikan seperti sebelum diinput.');
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', 'Gagal menghapus pesanan: ' . $e->getMessage());
+        }
+    }
 }

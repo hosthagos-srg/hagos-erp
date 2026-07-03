@@ -231,6 +231,12 @@
                                         @endif
                                         <button type="button" class="text-purple-600 hover:text-purple-900 whitespace-nowrap" onclick="openTesterModal('{{ $p->internal_id }}', '{{ $p->ekstra_tester ?? 0 }}')">🎁 Tester</button>
                                     @endif
+                                    <form method="POST" action="{{ route('penjualan.destroy', $p->internal_id) }}" class="inline"
+                                          onsubmit="return confirm('Hapus pesanan {{ $p->external_order_id ?? $p->internal_id }} secara PERMANEN?\n\nStok & kas yang terpakai akan dikembalikan, dan pesanan hilang sepenuhnya (seperti tidak pernah diinput). Tindakan ini TIDAK bisa dibatalkan.');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="text-gray-500 hover:text-red-900 whitespace-nowrap">🗑 Hapus</button>
+                                    </form>
                                 </div>
                             </td>
                         </tr>

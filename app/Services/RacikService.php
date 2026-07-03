@@ -184,4 +184,68 @@ class RacikService
         $komp->stok = (float) $komp->stok - $jumlah;
         $komp->save();
     }
+
+    /** Tambah stok 1 komponen (kebalikan potongKomponen) — untuk pembatalan/hapus racik. */
+    private function tambahKomponen(string $komponenId, float $jumlah): void
+    {
+        if ($jumlah <= 0) return;
+        $komp = MasterKomponen::where('komponen_id', $komponenId)->first();
+        if (!$komp) return;
+        if (isset($komp->track_stok) && strtolower((string) $komp->track_stok) === 'tidak') return;
+        $komp->stok = (float) $komp->stok + $jumlah;
+        $komp->save();
+    }
+
+    /**
+     * KEBALIKAN racik(): kembalikan semua stok yang terpotong saat meracik pesanan ini
+     * (bibit + komponen bare/packaging + tester + botol jadi T11). Dipakai saat HAPUS pesanan
+     * agar "seperti tidak pernah diinput". Hanya baris yang sudah diracik (hpp terisi) yang dibalik.
+     * qty dari T11 direkonstruksi dari StokJadiLog (tipe 'keluar', sumber 'penjualan').
+     */
+    public function kembalikanStokRacik(PenjualanHeader $header): void
+    {
+        $details = PenjualanDetail::where('internal_id', $header->internal_id)->get();
+        $isShipped = is_null($header->metode_pengiriman) ? null : ($header->metode_pengiriman === 'Dikirim');
+
+        foreach ($details as $detail) {
+            if (is_null($detail->hpp_satuan)) continue; // belum diracik → tak ada yang dipotong
+            $qty = (int) $detail->qty;
+
+            // Berapa unit diambil dari stok jadi (T11) saat racik
+            $qtyT11 = (int) \App\Models\StokJadiLog::where('ref_id', $header->internal_id)
+                ->where('sku_id', $detail->sku_id)->where('tipe', 'keluar')->where('sumber', 'penjualan')->sum('qty');
+            $qtyRacikBaru = max(0, $qty - $qtyT11);
+
+            $blend = $this->parseBlend($detail->resep_blend);
+            // breakdown TANPA ekstra tester (ekstra dikembalikan sekali per-pesanan di bawah)
+            $bd = $this->hpp->breakdown($detail->sku_id, $header->channel, $qty, 0, $isShipped, $blend);
+
+            // 1) Bibit (hanya untuk qty racik baru)
+            if ($qtyRacikBaru > 0) {
+                foreach ($this->hpp->resolveBibitComponents($detail->sku_id, $blend) as $c) {
+                    if (empty($c['bibit_id']) || $c['ml'] <= 0) continue;
+                    $b = MasterBibit::where('bibit_id', $c['bibit_id'])->first();
+                    if ($b) { $b->stok_ml = (float) $b->stok_ml + ((float) $c['ml'] * $qtyRacikBaru); $b->save(); }
+                }
+            }
+
+            // 2) Komponen: bare (racik baru) & packaging (semua qty) — selaras dgn potongan di racik()
+            $usage = $bd['komponen_usage'] ?? ['bare' => [], 'packaging' => []];
+            foreach ($usage['bare'] as $u)      $this->tambahKomponen($u['id'], $u['qty'] * $qtyRacikBaru);
+            foreach ($usage['packaging'] as $u) $this->tambahKomponen($u['id'], $u['qty'] * $qty);
+
+            // 3) Tester bawaan (tanpa ekstra)
+            if (($bd['tester']['jml'] ?? 0) > 0) $this->tambahKomponen('KMP-TSTR', $bd['tester']['jml']);
+
+            // 4) Botol jadi (T11) yang terpakai → kembalikan
+            if ($qtyT11 > 0) {
+                $produk = MasterProduk::where('sku_id', $detail->sku_id)->first();
+                if ($produk) { $produk->stok_t11 = (int) $produk->stok_t11 + $qtyT11; $produk->save(); }
+            }
+        }
+
+        // 5) Ekstra tester bersifat per-PESANAN → kembalikan sekali
+        $ekstra = (int) ($header->ekstra_tester ?? 0);
+        if ($ekstra > 0) $this->tambahKomponen('KMP-TSTR', $ekstra);
+    }
 }
