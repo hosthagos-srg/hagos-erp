@@ -111,6 +111,15 @@ class PenjualanController extends Controller
         return view('penjualan.perlu_cek', compact('items', 'allCount', 'perChannel', 'belumPernahDicek', 'channels'));
     }
 
+    /**
+     * Channel sumber HARGA jual. 'Offline (Tanpa Box + Tester)' tidak punya baris harga
+     * sendiri di Master Harga → memakai basis harga Reseller A (sesuai kesepakatan channel ini).
+     */
+    private function hargaChannel(string $channel): string
+    {
+        return $channel === 'Offline (Tanpa Box + Tester)' ? 'Reseller A' : $channel;
+    }
+
     /** AJAX: lookup harga jual + estimasi HPP/margin untuk input pesanan manual. */
     public function hargaLookup(Request $request, \App\Services\HppService $hpp)
     {
@@ -121,7 +130,7 @@ class PenjualanController extends Controller
         $diskon = (float) $request->input('diskon_manual', 0);
         $metode = $request->input('metode_pengiriman');
 
-        $hargaRow = ($sku && $channel) ? MasterHarga::where('sku_id', $sku)->where('channel', $channel)->first() : null;
+        $hargaRow = ($sku && $channel) ? MasterHarga::where('sku_id', $sku)->where('channel', $this->hargaChannel($channel))->first() : null;
         $hargaJual = $hargaRow ? (float) $hargaRow->harga_jual : 0;
         $subtotal = $hargaJual * $qty;
         $net = max(0, $subtotal - $diskon);
@@ -166,8 +175,15 @@ class PenjualanController extends Controller
         $akuns = \App\Models\MasterAkunKas::whereNotIn('tipe', ['Saldo MP', 'Piutang'])->orderBy('akun_id')->pluck('nama_akun');
 
         // Peta harga jual {sku_id: {channel: harga}} untuk hitung subtotal tiap baris di form (live).
+        // 'Offline (Tanpa Box + Tester)' tak punya baris harga → turunkan dari Reseller A.
         $hargaMap = MasterHarga::where('harga_jual', '>', 0)->get(['sku_id', 'channel', 'harga_jual'])
-            ->groupBy('sku_id')->map(fn($g) => $g->pluck('harga_jual', 'channel'));
+            ->groupBy('sku_id')->map(function ($g) {
+                $map = $g->pluck('harga_jual', 'channel');
+                if (isset($map['Reseller A']) && !isset($map['Offline (Tanpa Box + Tester)'])) {
+                    $map['Offline (Tanpa Box + Tester)'] = $map['Reseller A'];
+                }
+                return $map;
+            });
 
         return view('penjualan.create', compact('produks', 'channelOptions', 'admins', 'akuns', 'hargaMap'));
     }
@@ -257,7 +273,7 @@ class PenjualanController extends Controller
                     $skuId = $item['sku_id'];
                     $qty = (int) $item['qty'];
                     if ($qty < 1) continue;
-                    $harga = MasterHarga::where('sku_id', $skuId)->where('channel', $channel)->first();
+                    $harga = MasterHarga::where('sku_id', $skuId)->where('channel', $this->hargaChannel($channel))->first();
                     $hargaJual = $harga ? (float) $harga->harga_jual : 0;
                     $subtotal = $hargaJual * $qty;
                     $gmv += $subtotal;
@@ -302,26 +318,35 @@ class PenjualanController extends Controller
                     ]);
                 }
 
-                if ($isMarketplace) {
-                    // Marketplace: masuk antrean racik (diproses saat tarik data, ~jam 12 siang)
-                    return;
+                // Produk MIX (SKU berawalan 'MIX') butuh SESI RACIK untuk komposisi/pecah aroma →
+                // jangan auto-racik walau non-marketplace; biarkan mengantre (status Menunggu).
+                $adaMix = false;
+                foreach ($lines as $ln) {
+                    if (str_starts_with((string) $ln['sku_id'], 'MIX')) { $adaMix = true; break; }
                 }
 
-                // Non-marketplace: racik langsung tiap baris (potong stok + hitung HPP).
-                // Set peracik lebih dulu agar tercatat benar di log racik.
-                $header->diracik_oleh = $request->diterima_oleh ?: 'Input Manual';
-                // Ekstra tester bersifat per-PESANAN → hanya dibebankan ke baris pertama agar tidak dobel.
-                foreach ($details as $i => $detail) {
-                    $header->ekstra_tester = ($i === 0) ? $ekstraOrig : 0;
-                    $racikService->racik($detail, $header);
+                // Auto-racik hanya untuk NON-marketplace & NON-mix (offline/WA/reseller/refill biasa):
+                // racik langsung tiap baris (potong stok + hitung HPP).
+                if (!$isMarketplace && !$adaMix) {
+                    // Set peracik lebih dulu agar tercatat benar di log racik.
+                    $header->diracik_oleh = $request->diterima_oleh ?: 'Input Manual';
+                    // Ekstra tester bersifat per-PESANAN → hanya dibebankan ke baris pertama agar tidak dobel.
+                    foreach ($details as $i => $detail) {
+                        $header->ekstra_tester = ($i === 0) ? $ekstraOrig : 0;
+                        $racikService->racik($detail, $header);
+                    }
+                    $header->ekstra_tester = $ekstraOrig; // simpan nilai asli di header
+                    $header->status_pesanan = 'Selesai Racik';
+                    $header->tgl_racik = now()->toDateString();
+                    $header->save();
+                    $autoRacik = true;
                 }
-                $header->ekstra_tester = $ekstraOrig; // simpan nilai asli di header
-                $header->status_pesanan = 'Selesai Racik';
-                $header->tgl_racik = now()->toDateString();
-                $header->save();
-                $autoRacik = true;
 
-                // Uang MASUK ke akun bila sudah Lunas (offline/WA/reseller dibayar langsung)
+                // Marketplace: uang dicatat saat SETTLEMENT (cair) — berhenti di sini.
+                if ($isMarketplace) return;
+
+                // Non-marketplace (TERMASUK mix yang mengantre): uang MASUK bila sudah Lunas.
+                // (offline/WA/reseller dibayar langsung; mix tetap sudah dibayar walau racik menyusul.)
                 $net = (float) $gmv - (float) ($request->diskon_manual ?? 0);
                 if ($statusPembayaran === 'Lunas' && $request->akun_pembayaran && $net > 0) {
                     \App\Models\MutasiKas::catat($request->akun_pembayaran, 'masuk', $net, 'penjualan', $header->internal_id, 'Penjualan ' . $channel . ($request->nama_pembeli ? ' · ' . $request->nama_pembeli : ''));
