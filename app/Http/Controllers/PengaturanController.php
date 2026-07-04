@@ -47,6 +47,7 @@ class PengaturanController extends Controller
             'produksi_logs', 'stok_jadi_logs', 'audit_logs', 'rekonsiliasi_mps',
             'sampel_affiliate', 'belanja_details', 'belanja_headers',
             'cicilan_pembayaran', 'utang_cicilan', 'kasbon', 'gaji', 'pelanggan',
+            'piutang_pribadi_bayar', 'piutang_pribadi',
         ];
 
         DB::statement('SET FOREIGN_KEY_CHECKS=0');

@@ -175,11 +175,13 @@
                     </div>
                     <div class="flex gap-2">
                         <button type="submit" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-md text-sm font-semibold">Catat Kembali</button>
-                        <form method="POST" action="{{ route('piutang_pribadi.destroy', $p->id) }}" onsubmit="return confirm('Hapus SELURUH piutang {{ $p->nama }} & batalkan semua mutasi kasnya?')">
-                            @csrf @method('DELETE')
-                            <button type="submit" class="px-2 py-1.5 text-red-500 hover:text-red-700 text-sm" title="Hapus piutang">🗑</button>
-                        </form>
+                        {{-- Tombol hapus memicu form terpisah (di luar form bayar) agar method DELETE tak bocor ke form bayar. --}}
+                        <button type="submit" form="destroy-piutang-{{ $p->id }}" onclick="return confirm('Hapus SELURUH piutang {{ $p->nama }} & batalkan semua mutasi kasnya?')" class="px-2 py-1.5 text-red-500 hover:text-red-700 text-sm" title="Hapus piutang">🗑</button>
                     </div>
+                </form>
+                <form id="destroy-piutang-{{ $p->id }}" method="POST" action="{{ route('piutang_pribadi.destroy', $p->id) }}" class="hidden">
+                    @csrf
+                    @method('DELETE')
                 </form>
             </div>
         </div>
