@@ -80,6 +80,9 @@ class DashboardController extends Controller
         $sudahBayar = (float) \App\Models\CicilanPembayaran::whereIn('utang_cicilan_id', $utangAktifIds)
             ->where('status', 'lunas')->sum('jumlah_bayar');
         $sisaUtang = max(0, $totalUtangAktif - $sudahBayar);
+        // Utang pribadi (hutang tunai ke orang) → digabung jadi total hutang di dashboard.
+        $sisaUtangPribadi = (float) \App\Models\UtangPribadi::with('bayar')->where('status', 'aktif')->get()
+            ->sum(fn($u) => $u->sisa);
         $tagihanTerdekat = \App\Models\CicilanPembayaran::with('utangCicilan.sumberDana')
             ->whereIn('utang_cicilan_id', $utangAktifIds)
             ->where('status', 'belum')
@@ -94,8 +97,10 @@ class DashboardController extends Controller
             'omzet_bulan_pct'  => $pct($omzet($awalBln, $akhirBln), $omzet($awalBlnLalu, $akhirBlnLalu)),
             'nyangkut_jml'     => (int) ($nyangkut->jml ?? 0),
             'nyangkut_nilai'   => (float) ($nyangkut->nilai ?? 0),
-            'sisa_utang'       => $sisaUtang,
-            'tagihan_terdekat' => $tagihanTerdekat,
+            'sisa_utang'          => $sisaUtang,
+            'sisa_utang_pribadi'  => $sisaUtangPribadi,
+            'total_hutang'        => $sisaUtang + $sisaUtangPribadi,
+            'tagihan_terdekat'    => $tagihanTerdekat,
         ];
 
         $recentActivity = $this->recentActivity();

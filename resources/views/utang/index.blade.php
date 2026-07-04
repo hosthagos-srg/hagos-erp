@@ -19,10 +19,28 @@
             <p class="text-gray-500 mt-1">Kelola semua cicilan berdasarkan sumber dana</p>
         </div>
         <div class="flex gap-2">
+            <a href="{{ route('utang_pribadi.index') }}" class="inline-flex items-center px-4 py-2 bg-amber-600 rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-amber-700">💸 Utang Pribadi</a>
             <a href="{{ route('utang.create') }}" class="inline-flex items-center px-4 py-2 bg-red-600 rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-700">+ Tambah Utang</a>
             <a href="{{ route('dashboard') }}" class="inline-flex items-center px-4 py-2 bg-gray-700 rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-800">← Dashboard</a>
         </div>
     </header>
+
+    {{-- Ringkasan monitoring hutang (cicilan + pribadi) dalam satu dashboard --}}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div class="bg-white rounded-xl shadow-sm p-4 border-l-4 border-red-500">
+            <p class="text-xs text-gray-500">Sisa Utang Cicilan</p>
+            <p class="text-2xl font-bold text-red-600">Rp {{ number_format($totalSisaCicilan, 0, ',', '.') }}</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-4 border-l-4 border-amber-500">
+            <p class="text-xs text-gray-500">Sisa Utang Pribadi ({{ $jmlUtangPribadi }} orang)</p>
+            <p class="text-2xl font-bold text-amber-600">Rp {{ number_format($totalUtangPribadi, 0, ',', '.') }}</p>
+            <a href="{{ route('utang_pribadi.index') }}" class="text-xs text-indigo-600 hover:underline">Kelola Utang Pribadi →</a>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-4 border-l-4 border-gray-400">
+            <p class="text-xs text-gray-500">Total Hutang</p>
+            <p class="text-2xl font-bold text-gray-900">Rp {{ number_format($totalSisaCicilan + $totalUtangPribadi, 0, ',', '.') }}</p>
+        </div>
+    </div>
 
     @if(session('success'))
         <div class="mb-4 bg-green-100 border border-green-400 text-green-800 px-4 py-3 rounded">{{ session('success') }}</div>

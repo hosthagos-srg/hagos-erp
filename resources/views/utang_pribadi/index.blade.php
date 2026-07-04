@@ -17,9 +17,12 @@
 @endphp
 
 <div class="min-h-screen p-6 max-w-6xl mx-auto">
-    <header class="mb-6">
-        <h1 class="text-3xl font-bold text-gray-900">💸 Utang Pribadi</h1>
-        <p class="text-gray-500 mt-1">Pinjaman uang tunai dari orang (non-dagang). Kas otomatis bertambah saat meminjam, dan berkurang saat membayar. Tidak masuk laba/rugi.</p>
+    <header class="mb-6 flex justify-between items-start gap-3 flex-wrap">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">💸 Utang Pribadi</h1>
+            <p class="text-gray-500 mt-1">Pinjaman uang tunai dari orang (non-dagang). Kas otomatis bertambah saat meminjam, dan berkurang saat membayar. Tidak masuk laba/rugi.</p>
+        </div>
+        <a href="{{ route('utang.index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 flex-shrink-0">← Utang & Cicilan</a>
     </header>
 
     @if(session('success'))

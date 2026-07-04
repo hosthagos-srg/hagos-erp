@@ -68,12 +68,13 @@
                 <div class="flex items-center gap-3">
                     <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-red-50 text-red-600 text-lg">💳</span>
                     <div>
-                        <p class="text-2xl font-bold text-red-600">Rp {{ number_format($finansial['sisa_utang'], 0, ',', '.') }}</p>
+                        <p class="text-2xl font-bold text-red-600">Rp {{ number_format($finansial['total_hutang'], 0, ',', '.') }}</p>
+                        <p class="text-xs text-gray-500 font-medium">Total Hutang
+                            <span class="text-gray-400 font-normal">· cicilan {{ number_format($finansial['sisa_utang'], 0, ',', '.') }} + pribadi {{ number_format($finansial['sisa_utang_pribadi'], 0, ',', '.') }}</span>
+                        </p>
                         @if($finansial['tagihan_terdekat'])
                             @php $td = $finansial['tagihan_terdekat']; @endphp
-                            <p class="text-xs text-gray-500 font-medium">Sisa Utang <span class="text-gray-400 font-normal">· tagihan {{ \Carbon\Carbon::parse($td->periode)->format('d M') }} Rp {{ number_format($td->jumlah_tagihan, 0, ',', '.') }}</span></p>
-                        @else
-                            <p class="text-xs text-gray-500 font-medium">Sisa Utang <span class="text-gray-400 font-normal">· tidak ada cicilan aktif</span></p>
+                            <p class="text-xs text-gray-400 font-normal">tagihan terdekat {{ \Carbon\Carbon::parse($td->periode)->format('d M') }} Rp {{ number_format($td->jumlah_tagihan, 0, ',', '.') }}</p>
                         @endif
                     </div>
                 </div>

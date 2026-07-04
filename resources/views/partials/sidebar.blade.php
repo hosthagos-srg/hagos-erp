@@ -35,7 +35,6 @@
             ['route' => 'penerimaan.index',     'pattern' => 'penerimaan.*',         'label' => 'Penerimaan Uang'],
             ['route' => 'piutang.index',        'pattern' => 'piutang.index',        'label' => 'Piutang & Aging'],
             ['route' => 'piutang_pribadi.index', 'pattern' => 'piutang_pribadi.*',   'label' => 'Piutang Pribadi (Pinjaman)'],
-            ['route' => 'utang_pribadi.index',   'pattern' => 'utang_pribadi.*',     'label' => 'Utang Pribadi (Hutang)'],
             ['route' => 'proyeksi_kas.index',   'pattern' => 'proyeksi_kas.*',       'label' => 'Proyeksi Arus Kas'],
             ['route' => 'saldo.modal_form',     'pattern' => 'saldo.modal_form',     'label' => 'Modal & Prive'],
             ['route' => 'saldo.withdrawal_form', 'pattern' => 'saldo.withdrawal_form', 'label' => 'Tarik Dana (WD)'],

@@ -24,7 +24,19 @@ class UtangController extends Controller
 
         $notifikasi = $this->getNotifikasi();
 
-        return view('utang.index', compact('utangAktif', 'utangLunas', 'notifikasi'));
+        // Ringkasan Utang Pribadi (hutang tunai ke orang) — ditampilkan sebagai bagian dari
+        // dashboard monitoring hutang di halaman ini (aksesnya lewat tombol, bukan menu terpisah).
+        $utangPribadiAktif = \App\Models\UtangPribadi::with('bayar')->where('status', 'aktif')->get();
+        $totalUtangPribadi = (float) $utangPribadiAktif->sum(fn($u) => $u->sisa);
+        $jmlUtangPribadi   = $utangPribadiAktif->count();
+
+        // Total sisa utang cicilan (untuk ringkasan gabungan)
+        $totalSisaCicilan = (float) $utangAktif->sum(fn($u) => $u->sisa_utang);
+
+        return view('utang.index', compact(
+            'utangAktif', 'utangLunas', 'notifikasi',
+            'totalUtangPribadi', 'jmlUtangPribadi', 'totalSisaCicilan'
+        ));
     }
 
     public function create()
