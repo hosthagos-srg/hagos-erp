@@ -163,7 +163,7 @@ class WebsiteOrderService
                 // Endpoint detail website memakai field flat shipping_* (nama penerima = pembeli).
                 'nama'  => $this->pick($o, ['shipping_recipient_name', 'pelanggan.nama_lengkap', 'customer.name', 'buyer.nama', 'nama_pembeli']),
                 'no_hp' => $this->normalizeHp($this->pick($o, ['shipping_phone_number', 'pelanggan.nomor_telepon', 'customer.phone', 'buyer.no_hp', 'no_hp'])),
-                'email' => $this->pick($o, ['pelanggan.email', 'customer.email', 'email']),
+                'email' => $this->pick($o, ['user.email', 'pelanggan.email', 'customer.email', 'email']),
             ],
             'alamat'          => $this->buildAlamat($o),
             'kurir'           => trim(($this->pick($o, ['courier'], '') . ' ' . $this->pick($o, ['courier_service'], ''))) ?: null,
