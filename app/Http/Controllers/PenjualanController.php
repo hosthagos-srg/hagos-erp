@@ -17,7 +17,10 @@ class PenjualanController extends Controller
 {
     public function index(Request $request)
     {
-        $query = PenjualanHeader::with('details.produk')->orderBy('created_at', 'desc');
+        // Default: tanggal pesanan TERBARU (termuda) di atas; created_at sebagai pemecah seri.
+        $query = PenjualanHeader::with('details.produk')
+            ->orderBy('tgl_pesanan', 'desc')
+            ->orderBy('created_at', 'desc');
 
         if ($request->filled('search')) {
             $search = $request->search;
