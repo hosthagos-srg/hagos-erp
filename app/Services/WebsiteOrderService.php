@@ -160,19 +160,45 @@ class WebsiteOrderService
             'status_web'        => $this->pick($o, ['status', 'status_pesanan']),
             'tgl_pesanan'       => $tgl,
             'buyer' => [
-                'nama'  => $this->pick($o, ['pelanggan.nama_lengkap', 'customer.name', 'buyer.nama', 'nama_pembeli']),
-                'no_hp' => $this->pick($o, ['pelanggan.nomor_telepon', 'customer.phone', 'buyer.no_hp', 'no_hp']),
+                // Endpoint detail website memakai field flat shipping_* (nama penerima = pembeli).
+                'nama'  => $this->pick($o, ['shipping_recipient_name', 'pelanggan.nama_lengkap', 'customer.name', 'buyer.nama', 'nama_pembeli']),
+                'no_hp' => $this->normalizeHp($this->pick($o, ['shipping_phone_number', 'pelanggan.nomor_telepon', 'customer.phone', 'buyer.no_hp', 'no_hp'])),
                 'email' => $this->pick($o, ['pelanggan.email', 'customer.email', 'email']),
             ],
+            'alamat'          => $this->buildAlamat($o),
+            'kurir'           => trim(($this->pick($o, ['courier'], '') . ' ' . $this->pick($o, ['courier_service'], ''))) ?: null,
             'items'           => $items,
             'unmatched'       => $unmatched,
             'subtotal_produk' => round($subtotalProduk, 2),
-            'ongkir'          => (float) $this->pick($o, ['pengiriman.biaya_ongkir', 'pengiriman.total_ongkir', 'pembayaran.rincian_biaya.total_ongkir'], 0),
-            'diskon'          => (float) $this->pick($o, ['pembayaran.rincian_biaya.diskon_voucher', 'diskon'], 0),
+            'ongkir'          => (float) $this->pick($o, ['shipping_cost', 'pengiriman.biaya_ongkir', 'pengiriman.total_ongkir', 'pembayaran.rincian_biaya.total_ongkir'], 0),
+            'diskon'          => (float) $this->pick($o, ['discount_amount', 'pembayaran.rincian_biaya.diskon_voucher', 'diskon'], 0),
             'total_bayar'     => (float) $this->pick($o, ['final_total', 'pembayaran.rincian_biaya.total_keseluruhan'], 0),
-            'resi'            => $this->pick($o, ['pengiriman.nomor_resi', 'no_resi']),
+            'resi'            => $this->pick($o, ['tracking_number', 'pengiriman.nomor_resi', 'no_resi']),
             'bank'            => $this->pick($o, ['bank', 'pembayaran.bank_tujuan']),
         ];
+    }
+
+    /** Normalisasi no HP: website menyimpan tanpa 0 depan (mis. "8123.." → "08123..") */
+    private function normalizeHp(?string $hp): ?string
+    {
+        if (!$hp) return null;
+        $hp = preg_replace('/[^0-9]/', '', $hp);
+        if ($hp === '') return null;
+        if (str_starts_with($hp, '62')) $hp = '0' . substr($hp, 2);
+        elseif ($hp[0] !== '0') $hp = '0' . $hp;
+        return $hp;
+    }
+
+    /** Rangkai alamat pengiriman dari field flat shipping_* (untuk catatan/ref). */
+    private function buildAlamat(array $o): ?string
+    {
+        $bagian = array_filter([
+            $this->pick($o, ['shipping_street_address']),
+            $this->pick($o, ['shipping_city']),
+            $this->pick($o, ['shipping_province']),
+            $this->pick($o, ['shipping_postal_code']),
+        ]);
+        return count($bagian) ? implode(', ', $bagian) : null;
     }
 
     /**
@@ -192,6 +218,9 @@ class WebsiteOrderService
         }
         if (empty($base['resi']) && !empty($md['resi']))     $base['resi'] = $md['resi'];
         if (($base['ongkir'] ?? 0) == 0 && ($md['ongkir'] ?? 0) > 0) $base['ongkir'] = $md['ongkir'];
+        foreach (['alamat', 'kurir'] as $f) {
+            if (empty($base[$f]) && !empty($md[$f])) $base[$f] = $md[$f];
+        }
         return $base;
     }
 
