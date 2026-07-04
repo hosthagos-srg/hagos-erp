@@ -44,6 +44,11 @@ class PenjualanController extends Controller
             $query->where('channel', $request->channel);
         }
 
+        // Toggle monitoring: hanya pesanan yang dananya BELUM CAIR (settlement belum masuk).
+        if ($request->boolean('belum_cair')) {
+            $query->where('status_pembayaran', 'Belum Cair');
+        }
+
         $pesanans = $query->paginate(50)->withQueryString();
         
         $channels = PenjualanHeader::select('channel')->distinct()->pluck('channel');

@@ -116,11 +116,18 @@
                     </select>
                 </div>
 
+                <div class="w-full sm:w-auto">
+                    <label class="inline-flex items-center gap-1.5 text-sm font-medium {{ request('belum_cair') ? 'text-amber-800' : 'text-gray-600' }} cursor-pointer px-3 py-1.5 rounded-md border {{ request('belum_cair') ? 'border-amber-300 bg-amber-50' : 'border-gray-300 bg-white' }}">
+                        <input type="checkbox" name="belum_cair" value="1" {{ request('belum_cair') ? 'checked' : '' }} onchange="this.form.submit()" class="rounded border-gray-300 text-amber-600 focus:ring-indigo-500">
+                        💧 Hanya Belum Cair
+                    </label>
+                </div>
+
                 <div class="w-full sm:w-auto flex space-x-2">
                     <button type="submit" class="flex-1 sm:flex-none justify-center py-1.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none">
                         Filter
                     </button>
-                    @if(request()->anyFilled(['search', 'start_date', 'end_date', 'channel']))
+                    @if(request()->anyFilled(['search', 'start_date', 'end_date', 'channel', 'belum_cair']))
                     <a href="{{ route('penjualan.index') }}" class="flex-1 sm:flex-none justify-center py-1.5 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none text-center">
                         Reset
                     </a>
