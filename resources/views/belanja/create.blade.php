@@ -180,15 +180,13 @@
 
     document.getElementById('jenis').addEventListener('change', function () {
         document.querySelector('.qty-label').textContent = this.value === 'bibit' ? 'Qty (ml)' : 'Qty (pcs)';
-        const arr = itemOptionsArr();
+        // Bangun ulang tiap select bersih: hancurkan TomSelect lama → isi opsi jenis baru → init ulang.
+        // Lebih andal daripada memutasi opsi (yang bisa bikin dropdown rusak/terbuka).
         document.querySelectorAll('.item-select').forEach(s => {
-            if (s.tomselect) {
-                s.tomselect.clear(true);
-                s.tomselect.clearOptions();
-                s.tomselect.addOptions(arr);
-                s.tomselect.refreshOptions(false);
-            } else {
-                s.innerHTML = itemOptions();
+            if (s.tomselect) s.tomselect.destroy();
+            s.innerHTML = itemOptions();
+            if (window.TomSelect) {
+                new TomSelect(s, { create: false, sortField: { field: 'text', direction: 'asc' } });
             }
         });
     });
