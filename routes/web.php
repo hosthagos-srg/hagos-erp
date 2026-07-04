@@ -187,6 +187,7 @@ Route::post('/upload/settlement', [UploadController::class, 'processSettlement']
 // Mapping SKU
 Route::get('/upload/mapping', [App\Http\Controllers\MappingController::class, 'index'])->name('mapping.index');
 Route::post('/upload/mapping', [App\Http\Controllers\MappingController::class, 'store'])->name('mapping.store');
+Route::get('/upload/mapping/kelola', [App\Http\Controllers\MappingController::class, 'kelola'])->name('mapping.kelola');
 Route::post('/upload/mapping/reset-all', [App\Http\Controllers\MappingController::class, 'resetAll'])->name('mapping.reset_all');
 Route::delete('/upload/mapping/dangling', [App\Http\Controllers\MappingController::class, 'destroyDangling'])->name('mapping.destroy_dangling');
 Route::delete('/upload/mapping/{id}', [App\Http\Controllers\MappingController::class, 'destroy'])->name('mapping.destroy');
