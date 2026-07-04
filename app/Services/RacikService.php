@@ -236,16 +236,27 @@ class RacikService
 
             // 3) Tester bawaan (tanpa ekstra)
             if (($bd['tester']['jml'] ?? 0) > 0) $this->tambahKomponen('KMP-TSTR', $bd['tester']['jml']);
-
-            // 4) Botol jadi (T11) yang terpakai → kembalikan
-            if ($qtyT11 > 0) {
-                $produk = MasterProduk::where('sku_id', $detail->sku_id)->first();
-                if ($produk) { $produk->stok_t11 = (int) $produk->stok_t11 + $qtyT11; $produk->save(); }
-            }
+            // (Stok Jadi T11 ditangani terpusat di langkah 6 — lihat bawah.)
         }
 
         // 5) Ekstra tester bersifat per-PESANAN → kembalikan sekali
         $ekstra = (int) ($header->ekstra_tester ?? 0);
         if ($ekstra > 0) $this->tambahKomponen('KMP-TSTR', $ekstra);
+
+        // 6) Rekonsiliasi Stok Jadi (T11): balikkan SEMUA efek stok_jadi_logs pesanan ini.
+        //    'keluar' (racik ambil dari T11) menaikkan balik; 'masuk' (botol balik ke T11 saat
+        //    Batal/Retur diterima) menurunkan balik; 'rusak' tak menyentuh T11 → diabaikan.
+        //    Tanpa ini, urutan Batal→T11 lalu Hapus meninggalkan stok T11 hantu.
+        $netT11 = [];
+        foreach (\App\Models\StokJadiLog::where('ref_id', $header->internal_id)->get() as $log) {
+            $q = (float) $log->qty;
+            if ($log->tipe === 'keluar')    $netT11[$log->sku_id] = ($netT11[$log->sku_id] ?? 0) + $q;
+            elseif ($log->tipe === 'masuk') $netT11[$log->sku_id] = ($netT11[$log->sku_id] ?? 0) - $q;
+        }
+        foreach ($netT11 as $skuId => $q) {
+            if ($q == 0) continue;
+            $produk = MasterProduk::where('sku_id', $skuId)->first();
+            if ($produk) { $produk->stok_t11 = (int) $produk->stok_t11 + $q; $produk->save(); }
+        }
     }
 }
