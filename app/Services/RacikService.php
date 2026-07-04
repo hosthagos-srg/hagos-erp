@@ -75,6 +75,7 @@ class RacikService
         // sudah CAIR sebelum diracik (net_settlement terisi), settlement tak akan jalan lagi — jadi
         // hitung margin FINAL berbasis net di sini (alokasi net proporsional per subtotal baris).
         $netSettle = (float) ($header->net_settlement ?? 0);
+        $diskon = (float) ($header->diskon_manual ?? 0);
         if ($netSettle > 0) {
             $all = PenjualanDetail::where('internal_id', $header->internal_id)->get();
             $sumSub = 0.0;
@@ -83,6 +84,15 @@ class RacikService
             $share = $sumSub > 0 ? ($lineSub / $sumSub) : (1 / max(1, $all->count()));
             $netPerUnit = ($netSettle * $share) / max(1, $qty);
             $detail->margin_satuan = round($netPerUnit - $avgHpp, 2);
+        } elseif ($diskon > 0) {
+            // Non-marketplace dgn DISKON MANUAL (per-pesanan): alokasikan diskon proporsional per
+            // subtotal baris agar margin per baris = revenue setelah diskon − HPP. Dengan begini
+            // "Laba per Aroma" (Σ margin) konsisten dgn Laba Kotor P&L (omzet setelah diskon − HPP).
+            $gmv = (float) $header->gmv_kotor;
+            $lineSub = ((float) $detail->harga_satuan) * $qty;
+            $share = $gmv > 0 ? ($lineSub / $gmv) : 0;
+            $revPerUnit = ((float) $detail->harga_satuan) - (($diskon * $share) / max(1, $qty));
+            $detail->margin_satuan = round($revPerUnit - $avgHpp, 2);
         } else {
             $detail->margin_satuan = round((float) $detail->harga_satuan - $avgHpp, 2);
         }
