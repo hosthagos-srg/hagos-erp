@@ -127,6 +127,13 @@ Route::post('/piutang-pribadi/{piutang}/bayar', [App\Http\Controllers\PiutangPri
 Route::delete('/piutang-pribadi/bayar/{bayar}', [App\Http\Controllers\PiutangPribadiController::class, 'hapusBayar'])->name('piutang_pribadi.hapus_bayar');
 Route::delete('/piutang-pribadi/{piutang}', [App\Http\Controllers\PiutangPribadiController::class, 'destroy'])->name('piutang_pribadi.destroy');
 
+// Utang Pribadi (Hagos meminjam uang tunai dari orang — kebalikan Piutang Pribadi)
+Route::get('/utang-pribadi', [App\Http\Controllers\UtangPribadiController::class, 'index'])->name('utang_pribadi.index');
+Route::post('/utang-pribadi', [App\Http\Controllers\UtangPribadiController::class, 'store'])->name('utang_pribadi.store');
+Route::post('/utang-pribadi/{utang}/bayar', [App\Http\Controllers\UtangPribadiController::class, 'bayar'])->name('utang_pribadi.bayar');
+Route::delete('/utang-pribadi/bayar/{bayar}', [App\Http\Controllers\UtangPribadiController::class, 'hapusBayar'])->name('utang_pribadi.hapus_bayar');
+Route::delete('/utang-pribadi/{utang}', [App\Http\Controllers\UtangPribadiController::class, 'destroy'])->name('utang_pribadi.destroy');
+
 // Proyeksi Arus Kas
 Route::get('/proyeksi-kas', [App\Http\Controllers\ProyeksiKasController::class, 'index'])->name('proyeksi_kas.index');
 

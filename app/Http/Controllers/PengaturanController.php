@@ -48,6 +48,7 @@ class PengaturanController extends Controller
             'sampel_affiliate', 'belanja_details', 'belanja_headers',
             'cicilan_pembayaran', 'utang_cicilan', 'kasbon', 'gaji', 'pelanggan',
             'piutang_pribadi_bayar', 'piutang_pribadi',
+            'utang_pribadi_bayar', 'utang_pribadi',
         ];
 
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
