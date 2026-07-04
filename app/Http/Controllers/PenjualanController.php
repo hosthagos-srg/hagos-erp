@@ -55,7 +55,25 @@ class PenjualanController extends Controller
         // Pesanan batal yang menunggu barang fisik kembali (untuk notice + halaman monitoring).
         $barangBalikCount = $this->perluBarangBalikQuery()->count();
 
-        return view('penjualan.index', compact('pesanans', 'perluCek', 'perluCekCount', 'barangBalikCount', 'channels', 'produks', 'alasanBatal', 'akuns'));
+        // Pesanan yang PERLU AKSI PRA-RACIK sebelum diracik (agar tak terlewat):
+        //  - Pecah Bundle: ada baris produk bentuk 'BUNDLE' (belum dipecah).
+        //  - Set Mix: ada baris SKU 'MIX*' yang BELUM ada komposisi (resep_blend null) & bukan mix-tetap.
+        $mixTetapSkus = \App\Models\MasterResepBibit::distinct()->pluck('sku_id')->all();
+        $perluAksiCount = PenjualanDetail::query()
+            ->join('penjualan_headers as h', 'penjualan_details.internal_id', '=', 'h.internal_id')
+            ->leftJoin('master_produks as mp', 'penjualan_details.sku_id', '=', 'mp.sku_id')
+            ->where('h.status_pesanan', 'Menunggu')
+            ->where(function ($q) use ($mixTetapSkus) {
+                $q->where('mp.bentuk', 'BUNDLE')
+                  ->orWhere(function ($q2) use ($mixTetapSkus) {
+                      $q2->where('penjualan_details.sku_id', 'like', 'MIX%')
+                         ->whereNull('penjualan_details.resep_blend');
+                      if (!empty($mixTetapSkus)) $q2->whereNotIn('penjualan_details.sku_id', $mixTetapSkus);
+                  });
+            })
+            ->distinct()->count(DB::raw('h.internal_id'));
+
+        return view('penjualan.index', compact('pesanans', 'perluCek', 'perluCekCount', 'barangBalikCount', 'channels', 'produks', 'alasanBatal', 'akuns', 'mixTetapSkus', 'perluAksiCount'));
     }
 
     /**

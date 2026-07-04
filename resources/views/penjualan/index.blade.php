@@ -86,6 +86,12 @@
         </div>
         @endif
 
+        @if($perluAksiCount > 0)
+        <div class="bg-red-50 border-l-4 border-red-500 p-3 mb-6 shadow-sm rounded-r-md">
+            <p class="text-sm text-red-800">🧬 <b>{{ $perluAksiCount }}</b> pesanan perlu <b>Pecah Bundle</b> / <b>Set Mix</b> dulu sebelum diracik. Cari baris berbadge merah <b>"⚠️ Perlu …"</b> di daftar bawah → klik ID pesanannya → atur di detail (Aksi Pra-Racik).</p>
+        </div>
+        @endif
+
         <!-- Filter & Search Section -->
         <div class="bg-white shadow sm:rounded-lg p-3 mb-6">
             <form action="{{ route('penjualan.index') }}" method="GET" class="flex flex-wrap items-center gap-3">
@@ -162,6 +168,14 @@
                                     @endforeach
                                 </ul>
                                 <div class="flex flex-wrap gap-1 mt-1">
+                                    @if($p->status_pesanan === 'Menunggu')
+                                        @if($p->details->contains(fn($d) => optional($d->produk)->bentuk === 'BUNDLE'))
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-red-100 text-red-800" title="Pecah dulu di detail pesanan sebelum diracik">⚠️ Perlu Pecah Bundle</span>
+                                        @endif
+                                        @if($p->details->contains(fn($d) => \Illuminate\Support\Str::startsWith((string) $d->sku_id, 'MIX') && empty($d->resep_blend) && !in_array($d->sku_id, $mixTetapSkus)))
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-red-100 text-red-800" title="Set komposisi aroma dulu di detail pesanan sebelum diracik">⚠️ Perlu Set Mix</span>
+                                        @endif
+                                    @endif
                                     @if($p->details->contains('dari_bundle', true))
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-amber-100 text-amber-800">
                                             📦 Bundling
