@@ -18,9 +18,21 @@
                 <h1 class="text-3xl font-bold text-gray-900">Pemetaan SKU Marketplace</h1>
                 <p class="text-sm text-gray-600 mt-1">Sistem menemukan nama produk dari TikTok/Shopee yang tidak dikenali. Jodohkan dengan SKU Hagos Anda.</p>
             </div>
-            <a href="{{ route('upload.index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                Kembali
-            </a>
+            <div class="flex items-center gap-2">
+                @if(count($unmappedSkus) > 0)
+                <form action="{{ route('mapping.destroy_dangling') }}" method="POST" class="inline"
+                      onsubmit="return confirm('Hapus SEMUA {{ count($unmappedSkus) }} peta yang menggantung?\n\nCatatan: kalau file berisi produk itu diupload lagi, barisnya bisa muncul kembali. Untuk produk lama yang tak dijual lagi, sebaiknya pakai ❌ ABAIKAN (permanen).');">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600">
+                        🗑 Hapus Semua Menggantung
+                    </button>
+                </form>
+                @endif
+                <a href="{{ route('upload.index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    Kembali
+                </a>
+            </div>
         </div>
 
         <div class="bg-white shadow overflow-hidden sm:rounded-lg p-6">
@@ -34,6 +46,7 @@
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama Produk di Marketplace</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Variasi/Ukuran</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pasangkan dengan SKU Hagos</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Hapus</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
@@ -51,10 +64,16 @@
                                         @endforeach
                                     </select>
                                 </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    {{-- Tombol submit form hapus terpisah (di luar form utama) via atribut form= --}}
+                                    <button type="submit" form="del-{{ $item->id }}"
+                                            onclick="return confirm('Hapus baris peta ini secara permanen?');"
+                                            class="text-gray-400" title="Hapus baris ini">🗑</button>
+                                </td>
                             </tr>
                             @empty
                             <tr>
-                                <td colspan="4" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                                <td colspan="5" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                                     Hebat! Semua produk marketplace sudah terpetakan dengan sempurna.
                                 </td>
                             </tr>
@@ -71,6 +90,14 @@
                 </div>
                 @endif
             </form>
+
+            {{-- Form hapus per-baris, terpisah dari form pemetaan (dipicu tombol via atribut form=) --}}
+            @foreach($unmappedSkus as $item)
+            <form id="del-{{ $item->id }}" action="{{ route('mapping.destroy', $item->id) }}" method="POST" class="hidden">
+                @csrf
+                @method('DELETE')
+            </form>
+            @endforeach
         </div>
 
     </div>

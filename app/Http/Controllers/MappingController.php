@@ -34,4 +34,23 @@ class MappingController extends Controller
 
         return redirect()->route('upload.index')->with('success', "Berhasil memetakan $count SKU! Silakan upload ulang file pesanan Anda agar pesanan yang tadi tertunda bisa masuk.");
     }
+
+    /** Hapus satu baris peta SKU marketplace (mis. produk lama yang tak dijual lagi). */
+    public function destroy($id)
+    {
+        MarketplaceSku::where('id', $id)->delete();
+        return redirect()->route('mapping.index')->with('success', 'Peta SKU dihapus.');
+    }
+
+    /**
+     * Hapus SEMUA peta yang masih menggantung (sku_id belum dipetakan).
+     * Catatan: kalau file berisi produk itu diupload lagi, barisnya bisa muncul kembali.
+     * Untuk produk lama yang TAK dijual lagi, sebaiknya pilih "❌ ABAIKAN" (SKIP) agar
+     * diabaikan permanen, bukan sekadar dihapus.
+     */
+    public function destroyDangling()
+    {
+        $n = MarketplaceSku::whereNull('sku_id')->delete();
+        return redirect()->route('mapping.index')->with('success', "$n peta menggantung dihapus.");
+    }
 }
