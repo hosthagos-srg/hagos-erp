@@ -433,6 +433,9 @@ class UploadController extends Controller
                 $header = PenjualanHeader::where('external_order_id', $orderId)->first();
                 if (!$header) continue;
 
+                // Jangan settle pesanan yang sudah DIBATALKAN — cegah kas & pendapatan hantu.
+                if ($header->status_pesanan === 'Batal') continue;
+
                 // Omset otoritatif: dari settlement (Shopee) atau fallback GMV impor (TikTok = subtotal after discount)
                 $gross = $grossByOrder[$orderId] ?? 0;
                 if ($gross <= 0) {
@@ -460,10 +463,15 @@ class UploadController extends Controller
                 $header->save();
                 $countSettled++;
 
-                // Uang MASUK ke saldo marketplace (sekali; aman untuk re-upload settlement)
-                $sudahMasuk = \App\Models\MutasiKas::where('ref_id', $header->internal_id)->where('kategori', 'penjualan')->exists();
-                if (!$sudahMasuk && $net > 0) {
-                    \App\Models\MutasiKas::catat($akunMp, 'masuk', $net, 'penjualan', $header->internal_id, 'Settlement ' . $platform . ' ' . $orderId, null, $tglCair);
+                // Uang MASUK ke saldo marketplace, direkonsiliasi ke net TERBARU. Bila re-upload
+                // membawa net berbeda (koreksi), catat SELISIHnya saja → total kas = net (tak dobel,
+                // tak tertinggal di nilai lama). Re-upload net sama → selisih 0 → tak ada baris baru.
+                $existing = (float) (\App\Models\MutasiKas::where('ref_id', $header->internal_id)
+                    ->where('kategori', 'penjualan')
+                    ->selectRaw("SUM(CASE WHEN tipe='masuk' THEN jumlah ELSE -jumlah END) s")->value('s') ?? 0);
+                $delta = round($net - $existing, 2);
+                if (abs($delta) >= 1 && ($net > 0 || $existing > 0)) {
+                    \App\Models\MutasiKas::catat($akunMp, $delta > 0 ? 'masuk' : 'keluar', abs($delta), 'penjualan', $header->internal_id, 'Settlement ' . $platform . ' ' . $orderId . ($existing != 0 ? ' (koreksi)' : ''), null, $tglCair);
                 }
 
                 $this->alokasiMarginFinal($header, $net);

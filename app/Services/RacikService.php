@@ -71,8 +71,21 @@ class RacikService
         $avgHpp = $qty > 0 ? $totalHpp / $qty : 0;
 
         $detail->hpp_satuan = round($avgHpp, 2);
-        // Margin SEMENTARA (harga kotor). Marketplace dihitung ulang final saat settlement.
-        $detail->margin_satuan = round((float) $detail->harga_satuan - $avgHpp, 2);
+        // Margin: normalnya SEMENTARA (harga kotor) & difinalkan saat settlement. TAPI bila pesanan
+        // sudah CAIR sebelum diracik (net_settlement terisi), settlement tak akan jalan lagi — jadi
+        // hitung margin FINAL berbasis net di sini (alokasi net proporsional per subtotal baris).
+        $netSettle = (float) ($header->net_settlement ?? 0);
+        if ($netSettle > 0) {
+            $all = PenjualanDetail::where('internal_id', $header->internal_id)->get();
+            $sumSub = 0.0;
+            foreach ($all as $x) $sumSub += ((float) $x->harga_satuan) * max(1, (int) $x->qty);
+            $lineSub = ((float) $detail->harga_satuan) * $qty;
+            $share = $sumSub > 0 ? ($lineSub / $sumSub) : (1 / max(1, $all->count()));
+            $netPerUnit = ($netSettle * $share) / max(1, $qty);
+            $detail->margin_satuan = round($netPerUnit - $avgHpp, 2);
+        } else {
+            $detail->margin_satuan = round((float) $detail->harga_satuan - $avgHpp, 2);
+        }
 
         // Potong stok bibit (M1) untuk qty racik baru — dukung mix (multi-bibit) & custom blend.
         if ($qtyRacikBaru > 0) {
