@@ -91,6 +91,20 @@
                                         </option>
                                     @endforeach
                                 </select>
+                                @php
+                                    $isMix = \Illuminate\Support\Str::startsWith($item->sku_id, 'MIX') || !empty($item->resep_blend);
+                                    $mixDiset = !empty($item->resep_blend);
+                                @endphp
+                                @if($isMix)
+                                    @if($mixDiset)
+                                        <div class="mt-1 text-xs font-semibold text-green-700">🧬 Mix — komposisi sudah diatur ✓</div>
+                                    @else
+                                        <a href="{{ route('penjualan.show', $item->internal_id) }}" target="_blank"
+                                           class="mt-1 inline-block text-xs font-semibold text-purple-600 hover:text-purple-900 hover:underline">
+                                           🧬 Mix — atur aroma dulu (Set Mix) →
+                                        </a>
+                                    @endif
+                                @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 {{ $item->qty }}
