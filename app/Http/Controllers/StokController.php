@@ -14,7 +14,11 @@ class StokController extends Controller
     public function index()
     {
         $bibits = MasterBibit::orderBy('nama_bibit')->get();
-        $komponens = MasterKomponen::orderBy('nama_komponen')->get();
+        // Sembunyikan komponen yang TIDAK dilacak stoknya (gaji packing, kartu ucapan, shrink,
+        // sticker tester/utama, dll) — bukan barang inventori, tak perlu tampil di daftar stok.
+        $komponens = MasterKomponen::orderBy('nama_komponen')
+            ->whereRaw("LOWER(COALESCE(track_stok, 'ya')) <> 'tidak'")
+            ->get();
 
         // Nilai inventory
         $nilaiBibit = $bibits->sum(fn($b) => (float) $b->stok_ml * (float) $b->harga_per_ml);
@@ -85,7 +89,8 @@ class StokController extends Controller
             $item->save();
         });
 
-        return redirect()->route('stok.index')->with('success', "Stok berhasil dikoreksi ke {$stokFisik}.");
+        return redirect()->route('stok.index', ['tab' => $type === 'komponen' ? 'komponen' : 'bibit'])
+            ->with('success', "Stok berhasil dikoreksi ke {$stokFisik}.");
     }
 
     /** Edit detail bibit (threshold, nama, merek, nama asli, harga/ml, status). Stok TIDAK diubah di sini. */
@@ -119,6 +124,6 @@ class StokController extends Controller
 
         $item->update($request->only('nama_komponen', 'harga_satuan', 'satuan', 'threshold'));
 
-        return redirect()->route('stok.index')->with('success', "Detail komponen {$item->nama_komponen} diperbarui.");
+        return redirect()->route('stok.index', ['tab' => 'komponen'])->with('success', "Detail komponen {$item->nama_komponen} diperbarui.");
     }
 }

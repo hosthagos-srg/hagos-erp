@@ -463,6 +463,10 @@ function closeKoreksi() {
     document.getElementById('modal-koreksi').classList.add('hidden');
 }
 document.addEventListener('DOMContentLoaded', function () {
+    // Aktifkan tab sesuai ?tab= (mis. setelah edit/koreksi komponen → kembali ke tab Komponen).
+    const _tab = new URLSearchParams(window.location.search).get('tab');
+    if (_tab && document.getElementById('tab-' + _tab)) switchTab(_tab);
+
     document.getElementById('k-fisik').addEventListener('input', function () {
         const fisik = parseFloat(this.value) || 0;
         const selisih = fisik - kSistemVal;
