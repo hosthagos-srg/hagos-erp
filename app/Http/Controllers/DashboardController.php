@@ -388,6 +388,9 @@ class DashboardController extends Controller
             ->join('penjualan_headers as h', 'd.internal_id', '=', 'h.internal_id')
             ->join('master_produks as p', 'd.sku_id', '=', 'p.sku_id')
             ->where('h.status_pesanan', '!=', 'Batal')
+            // Kecualikan baris INDUK bundle (BUNDLE*) — omzet & qty-nya sudah terwakili
+            // oleh baris anak (parfum asli, dari_bundle=1). Tanpa ini omzet bundle dobel.
+            ->where('d.sku_id', 'not like', 'BUNDLE%')
             ->whereBetween('h.tgl_pesanan', [$awal, $akhir])
             ->selectRaw('d.sku_id, p.nama_produk, p.ukuran_ml, SUM(d.qty) as total_qty, SUM(d.subtotal) as total_omset')
             ->groupBy('d.sku_id', 'p.nama_produk', 'p.ukuran_ml')
