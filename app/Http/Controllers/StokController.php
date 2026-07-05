@@ -13,10 +13,11 @@ class StokController extends Controller
 {
     public function index()
     {
-        $bibits = MasterBibit::orderBy('nama_bibit')->get();
+        // Default urut per SKU/kode (bukan nama).
+        $bibits = MasterBibit::orderBy('sku_aroma')->get();
         // Sembunyikan komponen yang TIDAK dilacak stoknya (gaji packing, kartu ucapan, shrink,
         // sticker tester/utama, dll) — bukan barang inventori, tak perlu tampil di daftar stok.
-        $komponens = MasterKomponen::orderBy('nama_komponen')
+        $komponens = MasterKomponen::orderBy('komponen_id')
             ->whereRaw("LOWER(COALESCE(track_stok, 'ya')) <> 'tidak'")
             ->get();
 
