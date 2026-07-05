@@ -202,37 +202,41 @@
 
     {{-- TAB RIWAYAT --}}
     <div id="tab-terpakai" class="tab-content hidden">
-        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-            <p class="text-sm text-gray-600">Bibit terpakai <b>{{ $bulanLabel }}</b> — dari pesanan yang sudah diproses × resep. <span class="text-xs text-gray-400">(resep utama; komposisi mix belum termasuk)</span></p>
-            <a href="{{ route('laporan.bibit') }}" class="text-xs font-semibold text-indigo-600 hover:underline">Laporan lengkap per bulan →</a>
-        </div>
+        <p class="text-sm text-gray-600 mb-3">Log aktivitas racik & bibit terpakai — <b>200 racikan terakhir</b> (50 per halaman).</p>
         <div class="bg-white rounded-xl shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aroma / Bibit</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Qty Terjual</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Terpakai (ml)</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Harga/ml</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Nilai Terpakai</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aktivitas</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bibit Terpakai</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Oleh</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-100">
-                        @forelse($bibitTerpakai as $t)
+                        @forelse($racikLog as $log)
                             <tr>
-                                <td class="px-4 py-3 text-sm text-gray-900">{{ $t->nama_bibit }}</td>
-                                <td class="px-4 py-3 text-sm text-right text-gray-600">{{ (int) $t->total_qty }} pcs</td>
-                                <td class="px-4 py-3 text-sm text-right font-semibold text-gray-900">{{ rtrim(rtrim(number_format($t->total_ml, 2, ',', '.'), '0'), ',') }} ml</td>
-                                <td class="px-4 py-3 text-sm text-right text-gray-500">Rp {{ number_format($t->harga_per_ml, 0, ',', '.') }}</td>
-                                <td class="px-4 py-3 text-sm text-right text-gray-700">Rp {{ number_format($t->nilai, 0, ',', '.') }}</td>
+                                <td class="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{{ \Carbon\Carbon::parse($log->tgl_racik)->format('d/m/Y') }}</td>
+                                <td class="px-4 py-3 text-sm text-gray-900">{{ $log->ringkasan }}</td>
+                                <td class="px-4 py-3 text-sm">
+                                    @forelse($log->bibit_pakai as $bp)
+                                        <div class="text-gray-700">{{ $bp['label'] }}: <b>{{ rtrim(rtrim(number_format($bp['ml'], 2, ',', '.'), '0'), ',') }}</b> ml</div>
+                                    @empty
+                                        <span class="text-gray-400">—</span>
+                                    @endforelse
+                                </td>
+                                <td class="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{{ $log->diracik_oleh ?? '-' }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="px-4 py-6 text-center text-gray-400 text-sm">Belum ada bibit terpakai bulan ini.</td></tr>
+                            <tr><td colspan="4" class="px-4 py-6 text-center text-gray-400 text-sm">Belum ada aktivitas racik.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
+            @if($racikLog->hasPages())
+                <div class="px-4 py-3 border-t border-gray-100">{{ $racikLog->links() }}</div>
+            @endif
         </div>
     </div>
 

@@ -40,28 +40,36 @@ class StokController extends Controller
         // Riwayat koreksi terbaru
         $riwayat = KoreksiStok::orderBy('tanggal', 'desc')->orderBy('created_at', 'desc')->limit(30)->get();
 
-        // Bibit terpakai BULAN INI (agregat: pesanan diproses × ml resep utama). Sama basis dgn
-        // laporan Bibit Terpakai. Catatan: pakai resep bibit-tunggal; komposisi mix belum termasuk.
-        $awalBln = now()->startOfMonth()->toDateString();
-        $akhirBln = now()->endOfMonth()->toDateString();
-        $bibitTerpakai = DB::table('penjualan_details as d')
-            ->join('penjualan_headers as h', 'h.internal_id', '=', 'd.internal_id')
-            ->join('master_reseps as r', 'r.sku_id', '=', 'd.sku_id')
-            ->join('master_bibits as b', 'b.bibit_id', '=', 'r.bibit_id')
-            ->whereNotIn('h.status_pesanan', ['Menunggu', 'Batal'])
-            ->whereBetween('h.tgl_pesanan', [$awalBln, $akhirBln])
-            ->groupBy('b.bibit_id', 'b.nama_bibit', 'b.harga_per_ml')
-            ->selectRaw('b.nama_bibit, b.harga_per_ml, SUM(d.qty) as total_qty, SUM(r.ml_bibit_utama * d.qty) as total_ml')
-            ->orderByDesc(DB::raw('SUM(r.ml_bibit_utama * d.qty)'))
-            ->get()
-            ->map(function ($r) { $r->nilai = (float) $r->total_ml * (float) $r->harga_per_ml; return $r; });
-        $bulanID = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-        $bulanLabel = $bulanID[(int) now()->month] . ' ' . now()->year;
+        // Log aktivitas bibit: 200 racik TERAKHIR, 50 per halaman. Bibit terpakai tiap racik
+        // diturunkan dari resep (dukung mix via resep_blend per-detail & master_resep_bibit).
+        $logIds = \App\Models\ProduksiLog::orderByDesc('id')->limit(200)->pluck('id');
+        $racikLog = \App\Models\ProduksiLog::whereIn('id', $logIds)
+            ->orderByDesc('tgl_racik')->orderByDesc('id')
+            ->paginate(50, ['*'], 'rlog')->appends(['tab' => 'terpakai']);
+
+        $hppSvc = app(\App\Services\HppService::class);
+        $racikLog->getCollection()->transform(function ($log) use ($hppSvc) {
+            $dt = is_array($log->detail_text) ? $log->detail_text : (json_decode($log->detail_text ?? '', true) ?: []);
+            $sku = $dt['sku_id'] ?? null;
+            $qty = max(1, (int) ($dt['qty'] ?? 0));
+            $blend = null;
+            if ($sku && !empty($dt['internal_id'])) {
+                $rb = DB::table('penjualan_details')->where('internal_id', $dt['internal_id'])
+                    ->where('sku_id', $sku)->value('resep_blend');
+                $blend = $rb ? json_decode($rb, true) : null;
+            }
+            $comps = $sku ? $hppSvc->resolveBibitComponents($sku, is_array($blend) ? $blend : null) : [];
+            $log->bibit_pakai = collect($comps)
+                ->filter(fn($c) => !empty($c['bibit_id']) && (float) $c['ml'] > 0)
+                ->map(fn($c) => ['label' => $c['label'], 'ml' => (float) $c['ml'] * $qty])
+                ->values();
+            return $log;
+        });
 
         return view('stok.index', compact(
             'bibits', 'komponens', 'nilaiBibit', 'nilaiKomponen',
             'bibitWarning', 'komponenWarning', 'stokTesterJadi', 'admins', 'alasanList', 'riwayat',
-            'bibitTerpakai', 'bulanLabel'
+            'racikLog'
         ));
     }
 
