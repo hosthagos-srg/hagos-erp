@@ -133,7 +133,8 @@
                                                     @if($nama)<span class="text-gray-500">· {{ $nama }}</span>@endif
                                                     <span class="block text-xs text-gray-400">batch: {{ $d->batch_id }}</span>
                                                 </td>
-                                                <td class="py-1.5 text-right text-gray-700">{{ rtrim(rtrim(number_format($d->qty, 2, ',', '.'), '0'), ',') }} {{ $b->jenis === 'bibit' ? 'ml' : 'pcs' }}</td>
+                                                @php $satuan = $b->jenis === 'bibit' ? 'ml' : ($satuanKomponen[$d->item_id] ?? 'pcs'); @endphp
+                                                <td class="py-1.5 text-right text-gray-700">{{ rtrim(rtrim(number_format($d->qty, 2, ',', '.'), '0'), ',') }} {{ $satuan }}</td>
                                                 <td class="py-1.5 text-right text-gray-700">Rp {{ number_format($d->harga_total_item, 0, ',', '.') }}</td>
                                                 <td class="py-1.5 text-right text-gray-500">Rp {{ number_format($d->harga_net_per_unit, 2, ',', '.') }}</td>
                                             </tr>

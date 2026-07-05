@@ -34,9 +34,11 @@ class BelanjaController extends Controller
         // Nama item untuk tampilan detail
         $namaBibit = MasterBibit::pluck('nama_bibit', 'bibit_id');
         $namaKomponen = MasterKomponen::pluck('nama_komponen', 'komponen_id');
+        // Satuan asli komponen (absolute=ml, botol/box=pcs, dll) untuk label qty riwayat
+        $satuanKomponen = MasterKomponen::pluck('satuan', 'komponen_id');
 
         $belanjas = $query->paginate(30)->withQueryString();
-        return view('belanja.index', compact('belanjas', 'statusCounts', 'namaBibit', 'namaKomponen'));
+        return view('belanja.index', compact('belanjas', 'statusCounts', 'namaBibit', 'namaKomponen', 'satuanKomponen'));
     }
 
     public function create()
