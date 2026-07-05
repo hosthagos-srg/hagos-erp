@@ -42,7 +42,7 @@ class BelanjaController extends Controller
     public function create()
     {
         $bibits = MasterBibit::orderBy('nama_bibit')->get(['bibit_id', 'nama_bibit', 'harga_per_ml']);
-        $komponens = MasterKomponen::orderBy('nama_komponen')->get(['komponen_id', 'nama_komponen', 'harga_satuan']);
+        $komponens = MasterKomponen::orderBy('nama_komponen')->get(['komponen_id', 'nama_komponen', 'harga_satuan', 'satuan']);
         $akuns = MasterAkunKas::orderBy('nama_akun')->pluck('nama_akun');
         return view('belanja.create', compact('bibits', 'komponens', 'akuns'));
     }

@@ -151,15 +151,26 @@
         tr.className = 'border-b border-gray-50';
         tr.innerHTML = `
             <td class="py-1 pr-2"><select name="items[${i}][item_id]" required class="block w-full border-gray-300 rounded-md border px-2 py-1.5 text-sm bg-white item-select">${itemOptions()}</select></td>
-            <td class="py-1 pr-2"><input type="number" name="items[${i}][qty]" step="any" min="0.01" required class="block w-full border-gray-300 rounded-md border px-2 py-1.5 text-sm text-right"></td>
+            <td class="py-1 pr-2"><div class="flex items-center gap-1"><input type="number" name="items[${i}][qty]" step="any" min="0.01" required class="block w-full border-gray-300 rounded-md border px-2 py-1.5 text-sm text-right"><span class="qty-unit text-xs text-gray-500 w-8 flex-shrink-0"></span></div></td>
             <td class="py-1 pr-2"><input type="number" name="items[${i}][harga_total_item]" step="any" min="0" required class="block w-full border-gray-300 rounded-md border px-2 py-1.5 text-sm text-right calc"></td>
             <td class="py-1 text-center"><button type="button" onclick="this.closest('tr').remove(); recalc();" class="text-red-500 hover:text-red-700">✕</button></td>`;
         document.getElementById('itemRows').appendChild(tr);
         tr.querySelectorAll('.calc').forEach(el => el.addEventListener('input', recalc));
         const sel = tr.querySelector('.item-select');
+        const unitEl = tr.querySelector('.qty-unit');
+        const updateUnit = () => { unitEl.textContent = sel.value ? unitFor(sel.value) : ''; };
+        sel.addEventListener('change', updateUnit);
         if (window.TomSelect && sel) {
             new TomSelect(sel, { create: false, sortField: { field: 'text', direction: 'asc' } });
         }
+        updateUnit();
+    }
+
+    // Satuan item: bibit selalu 'ml'; komponen sesuai kolom satuan-nya (absolute=ml, botol=pcs, dll).
+    function unitFor(itemId) {
+        if (document.getElementById('jenis').value === 'bibit') return 'ml';
+        const k = KOMPONENS.find(x => String(x.komponen_id) === String(itemId));
+        return (k && k.satuan) ? k.satuan : '';
     }
 
     function rp(n){ return 'Rp ' + Math.round(n).toLocaleString('id-ID'); }
@@ -179,7 +190,8 @@
     }
 
     document.getElementById('jenis').addEventListener('change', function () {
-        document.querySelector('.qty-label').textContent = this.value === 'bibit' ? 'Qty (ml)' : 'Qty (pcs)';
+        // Komponen: satuan beda-beda per item → label header generik, satuan tampil per baris.
+        document.querySelector('.qty-label').textContent = this.value === 'bibit' ? 'Qty (ml)' : 'Qty';
         // Bangun ulang tiap select bersih: hancurkan TomSelect lama → isi opsi jenis baru → init ulang.
         // Lebih andal daripada memutasi opsi (yang bisa bikin dropdown rusak/terbuka).
         document.querySelectorAll('.item-select').forEach(s => {
@@ -188,6 +200,9 @@
             if (window.TomSelect) {
                 new TomSelect(s, { create: false, sortField: { field: 'text', direction: 'asc' } });
             }
+            // Reset satuan baris (belum ada item terpilih setelah ganti jenis).
+            const u = s.closest('tr').querySelector('.qty-unit');
+            if (u) u.textContent = '';
         });
     });
     document.querySelectorAll('#voucher,#ongkir,#layanan').forEach(el => el.addEventListener('input', recalc));
