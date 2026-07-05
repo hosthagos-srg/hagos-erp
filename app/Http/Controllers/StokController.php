@@ -50,19 +50,34 @@ class StokController extends Controller
         $hppSvc = app(\App\Services\HppService::class);
         $racikLog->getCollection()->transform(function ($log) use ($hppSvc) {
             $dt = is_array($log->detail_text) ? $log->detail_text : (json_decode($log->detail_text ?? '', true) ?: []);
-            $sku = $dt['sku_id'] ?? null;
-            $qty = max(1, (int) ($dt['qty'] ?? 0));
-            $blend = null;
-            if ($sku && !empty($dt['internal_id'])) {
-                $rb = DB::table('penjualan_details')->where('internal_id', $dt['internal_id'])
-                    ->where('sku_id', $sku)->value('resep_blend');
-                $blend = $rb ? json_decode($rb, true) : null;
+            $tipe = (string) ($log->tipe ?? '');
+            $out = collect();
+
+            if ($tipe === 'Tester') {
+                // detail_text = [{bibit_id, nama_bibit, qty}, ...]; tiap botol tester pakai 1,5 ml bibit.
+                foreach ($dt as $e) {
+                    if (!is_array($e) || empty($e['bibit_id'])) continue;
+                    $qb = (int) ($e['qty'] ?? 0);
+                    if ($qb <= 0) continue;
+                    $out->push(['label' => $e['nama_bibit'] ?? $e['bibit_id'], 'ml' => 1.5 * $qb]);
+                }
+            } elseif (str_starts_with($tipe, 'Racik Pesanan')) {
+                // Produk: bibit dari resep (dukung mix via resep_blend per-detail).
+                $sku = $dt['sku_id'] ?? null;
+                $qty = max(1, (int) ($dt['qty'] ?? 0));
+                $blend = null;
+                if ($sku && !empty($dt['internal_id'])) {
+                    $rb = DB::table('penjualan_details')->where('internal_id', $dt['internal_id'])
+                        ->where('sku_id', $sku)->value('resep_blend');
+                    $blend = $rb ? json_decode($rb, true) : null;
+                }
+                $comps = $sku ? $hppSvc->resolveBibitComponents($sku, is_array($blend) ? $blend : null) : [];
+                $out = collect($comps)
+                    ->filter(fn($c) => !empty($c['bibit_id']) && (float) $c['ml'] > 0)
+                    ->map(fn($c) => ['label' => $c['label'], 'ml' => (float) $c['ml'] * $qty]);
             }
-            $comps = $sku ? $hppSvc->resolveBibitComponents($sku, is_array($blend) ? $blend : null) : [];
-            $log->bibit_pakai = collect($comps)
-                ->filter(fn($c) => !empty($c['bibit_id']) && (float) $c['ml'] > 0)
-                ->map(fn($c) => ['label' => $c['label'], 'ml' => (float) $c['ml'] * $qty])
-                ->values();
+            // 'Absolute' → tidak memakai bibit (out tetap kosong → tampil "—").
+            $log->bibit_pakai = $out->values();
             return $log;
         });
 
