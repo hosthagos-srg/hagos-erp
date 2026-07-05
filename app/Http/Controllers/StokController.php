@@ -40,9 +40,28 @@ class StokController extends Controller
         // Riwayat koreksi terbaru
         $riwayat = KoreksiStok::orderBy('tanggal', 'desc')->orderBy('created_at', 'desc')->limit(30)->get();
 
+        // Bibit terpakai BULAN INI (agregat: pesanan diproses × ml resep utama). Sama basis dgn
+        // laporan Bibit Terpakai. Catatan: pakai resep bibit-tunggal; komposisi mix belum termasuk.
+        $awalBln = now()->startOfMonth()->toDateString();
+        $akhirBln = now()->endOfMonth()->toDateString();
+        $bibitTerpakai = DB::table('penjualan_details as d')
+            ->join('penjualan_headers as h', 'h.internal_id', '=', 'd.internal_id')
+            ->join('master_reseps as r', 'r.sku_id', '=', 'd.sku_id')
+            ->join('master_bibits as b', 'b.bibit_id', '=', 'r.bibit_id')
+            ->whereNotIn('h.status_pesanan', ['Menunggu', 'Batal'])
+            ->whereBetween('h.tgl_pesanan', [$awalBln, $akhirBln])
+            ->groupBy('b.bibit_id', 'b.nama_bibit', 'b.harga_per_ml')
+            ->selectRaw('b.nama_bibit, b.harga_per_ml, SUM(d.qty) as total_qty, SUM(r.ml_bibit_utama * d.qty) as total_ml')
+            ->orderByDesc(DB::raw('SUM(r.ml_bibit_utama * d.qty)'))
+            ->get()
+            ->map(function ($r) { $r->nilai = (float) $r->total_ml * (float) $r->harga_per_ml; return $r; });
+        $bulanID = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        $bulanLabel = $bulanID[(int) now()->month] . ' ' . now()->year;
+
         return view('stok.index', compact(
             'bibits', 'komponens', 'nilaiBibit', 'nilaiKomponen',
-            'bibitWarning', 'komponenWarning', 'stokTesterJadi', 'admins', 'alasanList', 'riwayat'
+            'bibitWarning', 'komponenWarning', 'stokTesterJadi', 'admins', 'alasanList', 'riwayat',
+            'bibitTerpakai', 'bulanLabel'
         ));
     }
 
