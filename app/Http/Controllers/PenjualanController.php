@@ -102,6 +102,22 @@ class PenjualanController extends Controller
             });
     }
 
+    /**
+     * Daftar MONITORING: semua pesanan marketplace yang dananya belum cair & sudah masuk
+     * pantauan (pernah dicek ATAU umur > 12 hari). Beda dgn perluCekQuery (notifikasi):
+     * pesanan TETAP di sini walau baru dicek — hilang hanya saat dana Cair. Biar tak kehilangan jejak.
+     */
+    private function monitoringQuery()
+    {
+        return PenjualanHeader::where('channel', 'like', 'Marketplace%')
+            ->where('status_pembayaran', '!=', 'Cair')
+            ->where('status_pesanan', '!=', 'Batal')
+            ->where(function ($q) {
+                $q->whereNotNull('tgl_dicek')
+                    ->orWhereDate('tgl_pesanan', '<=', now()->subDays(12));
+            });
+    }
+
     /** Query pesanan batal yang menunggu barang fisik kembali (belum dikonfirmasi diterima). */
     private function perluBarangBalikQuery()
     {
@@ -121,20 +137,21 @@ class PenjualanController extends Controller
     /** Halaman khusus monitoring pesanan yang perlu dicek (settlement/COD belum cair). */
     public function perluCek(Request $request)
     {
-        $allCount = $this->perluCekQuery()->count();
+        $allCount = $this->monitoringQuery()->count();      // total dalam pantauan (tetap tampil)
+        $dueCount = $this->perluCekQuery()->count();         // yang jatuh tempo dicek (dasar notifikasi)
 
-        $q = $this->perluCekQuery();
+        $q = $this->monitoringQuery();
         if ($request->filled('channel')) {
             $q->where('channel', $request->channel);
         }
-        // Tertua di atas (paling mendesak). Belum pernah dicek didahulukan.
+        // Belum pernah dicek didahulukan, lalu tertua.
         $items = $q->orderByRaw('tgl_dicek IS NOT NULL')->orderBy('tgl_pesanan')->get();
 
-        $perChannel = $this->perluCekQuery()->get()->groupBy('channel')->map->count();
-        $belumPernahDicek = $this->perluCekQuery()->whereNull('tgl_dicek')->count();
+        $perChannel = $this->monitoringQuery()->get()->groupBy('channel')->map->count();
+        $belumPernahDicek = $this->monitoringQuery()->whereNull('tgl_dicek')->count();
         $channels = PenjualanHeader::where('channel', 'like', 'Marketplace%')->distinct()->orderBy('channel')->pluck('channel');
 
-        return view('penjualan.perlu_cek', compact('items', 'allCount', 'perChannel', 'belumPernahDicek', 'channels'));
+        return view('penjualan.perlu_cek', compact('items', 'allCount', 'dueCount', 'perChannel', 'belumPernahDicek', 'channels'));
     }
 
     /**
@@ -407,11 +424,15 @@ class PenjualanController extends Controller
         $oldStatus = $header->status_pesanan;
 
         // Tandai pesanan sudah dicek (tracking settlement belum cair). Notif muncul lagi 3 hari kemudian.
+        // Pesanan TETAP di daftar monitoring; simpan juga keterangan hasil cek (opsional).
         if ($action === 'cek_pesanan') {
             $header->tgl_dicek = now()->toDateString();
             $header->jumlah_dicek = (int) $header->jumlah_dicek + 1;
+            if ($request->has('catatan_cek')) {
+                $header->catatan_cek = trim((string) $request->input('catatan_cek')) ?: null;
+            }
             $header->save();
-            return redirect()->back()->with('success', "Pesanan ditandai sudah dicek (ke-{$header->jumlah_dicek}). Notif muncul lagi jika 3 hari belum cair.");
+            return redirect()->back()->with('success', "Pesanan ditandai sudah dicek (ke-{$header->jumlah_dicek}). Tetap di monitoring; notif muncul lagi jika 3 hari belum cair.");
         }
 
         // Terima pembayaran Piutang (reseller A bayar) -> status Cair + uang masuk
