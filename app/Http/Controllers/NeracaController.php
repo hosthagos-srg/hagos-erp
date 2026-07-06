@@ -10,6 +10,8 @@ use App\Models\MasterProduk;
 use App\Models\MutasiKas;
 use App\Models\UtangCicilan;
 use App\Models\CicilanPembayaran;
+use App\Models\PiutangPribadi;
+use App\Models\UtangPribadi;
 
 class NeracaController extends Controller
 {
@@ -36,20 +38,27 @@ class NeracaController extends Controller
             ->selectRaw('SUM(gmv_kotor) as t')->value('t');
         $piutang = $piutangReseller + $piutangMP;
 
+        // 2b. Piutang pribadi: uang tunai yang DIPINJAMKAN ke orang (aset — sisa belum kembali)
+        $piutangPribadi = (float) PiutangPribadi::where('status', 'aktif')->get()->sum(fn($p) => $p->sisa);
+
         // 3. Persediaan: bibit + komponen + produk jadi (T11)
         $nilaiBibit = (float) MasterBibit::selectRaw('SUM(stok_ml * harga_per_ml) as t')->value('t');
         $nilaiKomponen = (float) MasterKomponen::selectRaw('SUM(stok * harga_satuan) as t')->value('t');
         $nilaiT11 = (float) MasterProduk::selectRaw('SUM(stok_t11 * hpp_t11) as t')->value('t');
         $persediaan = $nilaiBibit + $nilaiKomponen + $nilaiT11;
 
-        $totalAset = $kas + $piutang + $persediaan;
+        $totalAset = $kas + $piutang + $piutangPribadi + $persediaan;
 
         // ── KEWAJIBAN ──
         $utangIds = UtangCicilan::where('status', 'aktif')->pluck('id');
         $totalUtang = (float) UtangCicilan::where('status', 'aktif')->sum('total_utang');
         $utangDibayar = (float) CicilanPembayaran::whereIn('utang_cicilan_id', $utangIds)->where('status', 'lunas')->sum('jumlah_bayar');
         $sisaUtang = max(0, $totalUtang - $utangDibayar);
-        $totalKewajiban = $sisaUtang;
+
+        // Utang pribadi: uang tunai yang DIPINJAM dari orang (kewajiban — sisa belum dibayar)
+        $utangPribadi = (float) UtangPribadi::where('status', 'aktif')->get()->sum(fn($u) => $u->sisa);
+
+        $totalKewajiban = $sisaUtang + $utangPribadi;
 
         // ── EKUITAS ──
         $modalBersih = $totalAset - $totalKewajiban; // = kekayaan bersih pemilik
@@ -58,9 +67,9 @@ class NeracaController extends Controller
         $labaAkumulasi = $modalBersih - $modalDisetor; // laba terkumpul (turunan)
 
         return view('neraca', compact(
-            'akunKas', 'kas', 'piutangReseller', 'piutangMP', 'piutang',
+            'akunKas', 'kas', 'piutangReseller', 'piutangMP', 'piutang', 'piutangPribadi',
             'nilaiBibit', 'nilaiKomponen', 'nilaiT11', 'persediaan', 'totalAset',
-            'sisaUtang', 'totalKewajiban',
+            'sisaUtang', 'utangPribadi', 'totalKewajiban',
             'modalBersih', 'modalDisetor', 'labaAkumulasi'
         ));
     }

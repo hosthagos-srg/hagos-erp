@@ -56,6 +56,13 @@
                         <div class="flex justify-between text-xs text-gray-500"><span class="pl-3">Settlement MP belum cair (perkiraan)</span><span>{{ $rp($piutangMP) }}</span></div>
                     </div>
                 </div>
+                {{-- Piutang pribadi --}}
+                @if($piutangPribadi > 0)
+                <div class="px-6 py-3">
+                    <div class="flex justify-between font-semibold text-gray-800"><span>Piutang Pribadi</span><span>{{ $rp($piutangPribadi) }}</span></div>
+                    <div class="mt-1"><div class="flex justify-between text-xs text-gray-500"><span class="pl-3">Uang dipinjamkan ke orang (sisa)</span><span>{{ $rp($piutangPribadi) }}</span></div></div>
+                </div>
+                @endif
                 {{-- Persediaan --}}
                 <div class="px-6 py-3">
                     <div class="flex justify-between font-semibold text-gray-800"><span>Persediaan</span><span>{{ $rp($persediaan) }}</span></div>
@@ -78,6 +85,9 @@
                 <div class="px-6 py-3 bg-red-50 border-b border-red-100"><h2 class="font-bold text-red-800">KEWAJIBAN</h2></div>
                 <div class="divide-y divide-gray-100">
                     <div class="px-6 py-3 flex justify-between text-gray-800"><span>Sisa Utang & Cicilan</span><span class="font-semibold">{{ $rp($sisaUtang) }}</span></div>
+                    @if($utangPribadi > 0)
+                    <div class="px-6 py-3 flex justify-between text-gray-800"><span>Utang Pribadi <span class="text-xs text-gray-400">(pinjam tunai dari orang)</span></span><span class="font-semibold">{{ $rp($utangPribadi) }}</span></div>
+                    @endif
                     <div class="px-6 py-3 flex justify-between items-center bg-red-50">
                         <span class="font-bold text-red-800">TOTAL KEWAJIBAN</span>
                         <span class="font-bold text-red-800 text-lg">{{ $rp($totalKewajiban) }}</span>
