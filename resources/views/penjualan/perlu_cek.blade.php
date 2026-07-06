@@ -12,7 +12,7 @@
 
 @php $tgl = fn($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d/m/Y') : '-'; @endphp
 
-<div class="min-h-screen p-6 max-w-5xl mx-auto">
+<div class="min-h-screen p-6 max-w-6xl mx-auto">
     <div class="mb-4">
         <a href="{{ route('penjualan.index') }}" class="text-indigo-600 hover:text-indigo-900 text-sm">&larr; Kembali ke Kelola Pesanan</a>
     </div>
@@ -63,57 +63,53 @@
 
     {{-- Daftar --}}
     <div class="bg-white rounded-2xl ring-1 ring-gray-100 shadow-sm overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 text-sm">
-                <thead class="bg-gray-50"><tr>
-                    <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Order ID</th>
-                    <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Channel</th>
-                    <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Tgl Pesanan</th>
-                    <th class="px-4 py-2 text-right text-xs text-gray-500 uppercase">Umur</th>
-                    <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Status Cek</th>
-                    <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Keterangan &amp; Aksi</th>
-                </tr></thead>
-                <tbody class="divide-y divide-gray-100">
-                    @forelse($items as $c)
-                        @php
-                            $umur = (int) \Illuminate\Support\Carbon::parse($c->tgl_pesanan)->diffInDays(now());
-                            // Jatuh tempo dicek = belum pernah dicek, atau cek terakhir >= 3 hari lalu.
-                            $due = is_null($c->tgl_dicek) || \Illuminate\Support\Carbon::parse($c->tgl_dicek)->diffInDays(now()) >= 3;
-                        @endphp
-                        <tr class="{{ $due ? ($umur > 20 ? 'bg-red-50' : 'bg-amber-50/60') : '' }}">
-                            <td class="px-4 py-2 align-top">
-                                <a href="{{ route('penjualan.show', $c->internal_id) }}" class="font-medium text-indigo-600 hover:underline">{{ $c->external_order_id ?? ('INV-' . strtoupper(substr($c->internal_id, 0, 8))) }}</a>
-                                @if($c->no_resi)<div class="text-xs text-gray-400">📦 {{ $c->no_resi }}</div>@endif
-                            </td>
-                            <td class="px-4 py-2 text-gray-600 align-top">{{ $c->channel }}</td>
-                            <td class="px-4 py-2 text-gray-600 whitespace-nowrap align-top">{{ $tgl($c->tgl_pesanan) }}</td>
-                            <td class="px-4 py-2 text-right whitespace-nowrap align-top {{ $umur > 20 ? 'text-red-600 font-semibold' : 'text-gray-700' }}">{{ $umur }} hari</td>
-                            <td class="px-4 py-2 whitespace-nowrap align-top">
-                                @if($c->jumlah_dicek > 0)
-                                    <span class="text-xs text-amber-700">✓ dicek {{ $c->jumlah_dicek }}× · terakhir {{ $tgl($c->tgl_dicek) }}</span>
-                                    @if($due)<div class="text-xs font-semibold text-amber-600">perlu cek ulang</div>@else<div class="text-xs text-emerald-600">masih terpantau</div>@endif
-                                @else
-                                    <span class="text-xs font-semibold text-red-600">Belum pernah dicek</span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-2 align-top">
-                                <form method="POST" action="{{ route('penjualan.update_status', $c->internal_id) }}" class="flex flex-col sm:flex-row gap-2 items-stretch">
-                                    @csrf
-                                    <input type="hidden" name="action" value="cek_pesanan">
-                                    <input type="text" name="catatan_cek" value="{{ $c->catatan_cek }}" maxlength="255"
-                                           placeholder="mis. paket stuck 3–6 Jul, masih menuju pembeli"
-                                           class="flex-1 min-w-0 border border-gray-300 rounded-md px-2 py-1 text-xs w-full sm:w-64">
-                                    <button type="submit" class="px-3 py-1 text-xs font-semibold rounded-md bg-amber-600 text-white hover:bg-amber-700 whitespace-nowrap">✓ Sudah Dicek</button>
-                                </form>
-                                @if($c->catatan_cek)<div class="text-xs text-gray-500 mt-1">📝 {{ $c->catatan_cek }}</div>@endif
-                            </td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="6" class="px-4 py-8 text-center text-emerald-600 italic">✓ Tidak ada pesanan dalam monitoring. Semua dana sudah cair!</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+        <table class="w-full table-fixed divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50"><tr>
+                <th class="px-3 py-2 text-left text-xs text-gray-500 uppercase w-[26%]">Pesanan</th>
+                <th class="px-3 py-2 text-left text-xs text-gray-500 uppercase w-[14%]">Umur / Tgl</th>
+                <th class="px-3 py-2 text-left text-xs text-gray-500 uppercase w-[18%]">Status Cek</th>
+                <th class="px-3 py-2 text-left text-xs text-gray-500 uppercase">Keterangan &amp; Aksi</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-100">
+                @forelse($items as $c)
+                    @php
+                        $umur = (int) \Illuminate\Support\Carbon::parse($c->tgl_pesanan)->diffInDays(now());
+                        // Jatuh tempo dicek = belum pernah dicek, atau cek terakhir >= 3 hari lalu.
+                        $due = is_null($c->tgl_dicek) || \Illuminate\Support\Carbon::parse($c->tgl_dicek)->diffInDays(now()) >= 3;
+                    @endphp
+                    <tr class="{{ $due ? ($umur > 20 ? 'bg-red-50' : 'bg-amber-50/60') : '' }}">
+                        <td class="px-3 py-2 align-top">
+                            <a href="{{ route('penjualan.show', $c->internal_id) }}" class="font-medium text-indigo-600 hover:underline break-all">{{ $c->external_order_id ?? ('INV-' . strtoupper(substr($c->internal_id, 0, 8))) }}</a>
+                            <div class="text-xs text-gray-400 truncate">{{ str_replace('Marketplace ', '', $c->channel) }}@if($c->no_resi) · 📦 {{ $c->no_resi }}@endif</div>
+                        </td>
+                        <td class="px-3 py-2 align-top">
+                            <div class="font-semibold {{ $umur > 20 ? 'text-red-600' : 'text-gray-700' }}">{{ $umur }} hari</div>
+                            <div class="text-xs text-gray-400">{{ $tgl($c->tgl_pesanan) }}</div>
+                        </td>
+                        <td class="px-3 py-2 align-top">
+                            @if($c->jumlah_dicek > 0)
+                                <span class="text-xs text-amber-700">✓ {{ $c->jumlah_dicek }}× · {{ $tgl($c->tgl_dicek) }}</span>
+                                @if($due)<div class="text-xs font-semibold text-amber-600">perlu cek ulang</div>@else<div class="text-xs text-emerald-600">terpantau</div>@endif
+                            @else
+                                <span class="text-xs font-semibold text-red-600">Belum dicek</span>
+                            @endif
+                        </td>
+                        <td class="px-3 py-2 align-top">
+                            <form method="POST" action="{{ route('penjualan.update_status', $c->internal_id) }}" class="flex gap-2 items-center">
+                                @csrf
+                                <input type="hidden" name="action" value="cek_pesanan">
+                                <input type="text" name="catatan_cek" value="{{ $c->catatan_cek }}" maxlength="255"
+                                       placeholder="cth: stuck, masih ke pembeli / balik ke penjual"
+                                       class="flex-1 min-w-0 border border-gray-300 rounded-md px-2 py-1 text-xs">
+                                <button type="submit" title="Tandai sudah dicek" class="shrink-0 px-2.5 py-1 text-xs font-semibold rounded-md bg-amber-600 text-white hover:bg-amber-700">✓</button>
+                            </form>
+                        </td>
+                    </tr>
+                @empty
+                    <tr><td colspan="4" class="px-4 py-8 text-center text-emerald-600 italic">✓ Tidak ada pesanan dalam monitoring. Semua dana sudah cair!</td></tr>
+                @endforelse
+            </tbody>
+        </table>
     </div>
 
     <p class="text-xs text-gray-400 mt-4">Baris <b>kuning</b> = jatuh tempo dicek (belum dicek / cek terakhir &gt;3 hari). Baris <b>merah</b> = umur &gt;20 hari. Baris putih = sudah dicek & masih terpantau. Pesanan hanya hilang dari sini saat dana <b>Cair</b> — bukan saat dicek. Isi keterangan tiap kali cek biar jejaknya jelas.</p>
