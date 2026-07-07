@@ -26,6 +26,15 @@
                 <p>{{ session('error') }}</p>
             </div>
         @endif
+        @if ($errors->any())
+            <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded" role="alert">
+                <p class="font-semibold">Upload gagal divalidasi:</p>
+                <ul class="list-disc list-inside text-sm mt-1">
+                    @foreach ($errors->all() as $err)<li>{{ $err }}</li>@endforeach
+                </ul>
+                <p class="text-xs mt-2 text-red-600">Jika file besar (&gt;2MB) tapi errornya "wajib diisi", kemungkinan ukuran file melebihi batas upload server. Kecilkan file atau naikkan <code>upload_max_filesize</code>/<code>post_max_size</code> di server.</p>
+            </div>
+        @endif
 
         @php
             $unmappedCount = \App\Models\MarketplaceSku::whereNull('sku_id')->count();
