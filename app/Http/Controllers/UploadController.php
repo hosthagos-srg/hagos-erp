@@ -146,7 +146,9 @@ class UploadController extends Controller
     public function processPesanan(Request $request)
     {
         $request->validate([
-            'file_pesanan' => 'required|file|mimes:csv,txt,xlsx,xls',
+            // Pakai extensions (cek ekstensi nama file), BUKAN mimes: file .xlsx TikTok
+            // terdeteksi kontennya sebagai application/zip → mimes menolaknya diam-diam.
+            'file_pesanan' => 'required|file|extensions:csv,txt,xlsx,xls',
             'platform' => 'required|string',
         ]);
 
@@ -301,7 +303,8 @@ class UploadController extends Controller
     public function processSettlement(Request $request)
     {
         $request->validate([
-            'file_settlement' => 'required|file|mimes:csv,txt,xlsx,xls',
+            // extensions (bukan mimes): xlsx TikTok terdeteksi application/zip → mimes menolak.
+            'file_settlement' => 'required|file|extensions:csv,txt,xlsx,xls',
             'platform' => 'required|string',
         ]);
 
