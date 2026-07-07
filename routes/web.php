@@ -86,6 +86,12 @@ Route::get('/belanja', [App\Http\Controllers\BelanjaController::class, 'index'])
 Route::get('/belanja/create', [App\Http\Controllers\BelanjaController::class, 'create'])->name('belanja.create');
 Route::post('/belanja', [App\Http\Controllers\BelanjaController::class, 'store'])->name('belanja.store');
 Route::post('/belanja/{belanja_id}/status', [App\Http\Controllers\BelanjaController::class, 'updateStatus'])->name('belanja.update_status');
+// Penerimaan per item + retur + selesai + hapus bersih
+Route::post('/belanja/item/{batch_id}/terima', [App\Http\Controllers\BelanjaController::class, 'terimaItem'])->name('belanja.item_terima');
+Route::post('/belanja/item/{batch_id}/retur', [App\Http\Controllers\BelanjaController::class, 'returItem'])->name('belanja.item_retur');
+Route::post('/belanja/item/{batch_id}/refund', [App\Http\Controllers\BelanjaController::class, 'refundItem'])->name('belanja.item_refund');
+Route::post('/belanja/{belanja_id}/selesai', [App\Http\Controllers\BelanjaController::class, 'selesai'])->name('belanja.selesai');
+Route::delete('/belanja/{belanja_id}', [App\Http\Controllers\BelanjaController::class, 'destroy'])->name('belanja.destroy');
 
 // Margin Watchdog
 Route::get('/margin', [App\Http\Controllers\MarginController::class, 'index'])->name('margin.index');

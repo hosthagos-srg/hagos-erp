@@ -203,41 +203,166 @@ class BelanjaController extends Controller
         }
     }
 
-    /** Naikkan stok + weighted-average HPP untuk semua item (sekali, anti dobel). */
+    /** Terima SEMUA item sekaligus (tombol "Terima" header) — naikkan stok + weighted-average. */
     private function terapkanStok(BelanjaHeader $header): void
     {
-        if ($header->stok_diterapkan) return;
-
         foreach ($header->details as $d) {
-            if ($header->jenis === 'bibit') {
-                $bibit = MasterBibit::where('bibit_id', $d->item_id)->first();
-                if (!$bibit) continue;
-                $oldStok = (float) $bibit->stok_ml;
-                $oldHarga = (float) $bibit->harga_per_ml;
+            $this->applyStokItem($d, $header);
+        }
+        $header->stok_diterapkan = true;
+        $header->status_belanja = 'Diterima';
+        $header->save();
+    }
+
+    /**
+     * Terima 1 item: masuk stok + weighted-average HPP. Idempoten (item yg sudah Diterima dilewati).
+     * Item yang Retur tidak boleh masuk stok.
+     */
+    private function applyStokItem(BelanjaDetail $d, BelanjaHeader $header): void
+    {
+        if (in_array($d->status_terima, ['Diterima', 'Retur', 'Retur Selesai'])) return;
+
+        if ($header->jenis === 'bibit') {
+            $bibit = MasterBibit::where('bibit_id', $d->item_id)->first();
+            if ($bibit) {
+                $oldStok = (float) $bibit->stok_ml; $oldHarga = (float) $bibit->harga_per_ml;
                 $newStok = $oldStok + (float) $d->qty;
                 $bibit->harga_per_ml = $newStok > 0
                     ? round((($oldStok * $oldHarga) + ((float) $d->qty * (float) $d->harga_net_per_unit)) / $newStok, 2)
                     : (float) $d->harga_net_per_unit;
-                $bibit->stok_ml = $newStok;
-                $bibit->save();
-            } else {
-                $komp = MasterKomponen::where('komponen_id', $d->item_id)->first();
-                if (!$komp) continue;
-                $oldStok = (float) $komp->stok;
-                $oldHarga = (float) $komp->harga_satuan;
+                $bibit->stok_ml = $newStok; $bibit->save();
+            }
+        } else {
+            $komp = MasterKomponen::where('komponen_id', $d->item_id)->first();
+            if ($komp) {
+                $oldStok = (float) $komp->stok; $oldHarga = (float) $komp->harga_satuan;
                 $newStok = $oldStok + (float) $d->qty;
                 $komp->harga_satuan = $newStok > 0
                     ? round((($oldStok * $oldHarga) + ((float) $d->qty * (float) $d->harga_net_per_unit)) / $newStok, 2)
                     : (float) $d->harga_net_per_unit;
-                $komp->stok = $newStok;
-                $komp->save();
+                $komp->stok = $newStok; $komp->save();
             }
-            $d->stok_sisa = (float) $d->qty;
-            $d->save();
         }
+        $d->stok_sisa = (float) $d->qty;
+        $d->status_terima = 'Diterima';
+        $d->tgl_terima = now()->toDateString();
+        $d->save();
 
         $header->stok_diterapkan = true;
-        $header->status_belanja = 'Diterima';
         $header->save();
+    }
+
+    /** Set status header otomatis dari status item (kecuali sudah Selesai/Dibatalkan). */
+    private function recomputeHeaderStatus(BelanjaHeader $header): void
+    {
+        $header->load('details');
+        if (in_array($header->status_belanja, ['Selesai', 'Dibatalkan'])) return;
+        $total = $header->details->count();
+        $resolved = $header->details->whereIn('status_terima', ['Diterima', 'Retur', 'Retur Selesai'])->count();
+        if ($resolved === 0) return; // masih Dipesan/Dikirim
+        $header->status_belanja = $resolved < $total ? 'Sebagian Diterima' : 'Diterima';
+        $header->save();
+    }
+
+    /** Terima 1 item (masuk stok). */
+    public function terimaItem(Request $request, string $batch_id)
+    {
+        $d = BelanjaDetail::with('header')->findOrFail($batch_id);
+        if ($d->status_terima === 'Diterima') return back()->with('error', 'Item ini sudah diterima.');
+        if (in_array($d->status_terima, ['Retur', 'Retur Selesai'])) return back()->with('error', 'Item ini diretur — tak bisa diterima.');
+        try {
+            DB::transaction(function () use ($d) {
+                $this->applyStokItem($d, $d->header);
+                $this->recomputeHeaderStatus($d->header);
+            });
+            return back()->with('success', "Item {$d->item_id} diterima & masuk stok.");
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal terima item: ' . $e->getMessage());
+        }
+    }
+
+    /** Ajukan retur 1 item (tak masuk stok, refund BELUM masuk — nunggu supplier accept). */
+    public function returItem(Request $request, string $batch_id)
+    {
+        $request->validate([
+            'catatan_terima' => 'nullable|string|max:255',
+            'resi_retur'     => 'nullable|string|max:100',
+        ]);
+        $d = BelanjaDetail::with('header')->findOrFail($batch_id);
+        if ($d->status_terima === 'Diterima') return back()->with('error', 'Item sudah masuk stok — tak bisa diretur dari sini (koreksi stok manual).');
+        if (in_array($d->status_terima, ['Retur', 'Retur Selesai'])) return back()->with('error', 'Item ini sudah diretur.');
+        try {
+            DB::transaction(function () use ($d, $request) {
+                $d->status_terima = 'Retur';
+                $d->tgl_terima = now()->toDateString();
+                $d->catatan_terima = $request->catatan_terima ?: null;
+                $d->resi_retur = $request->resi_retur ?: null;
+                $d->nilai_refund = (float) $d->harga_total_item; // default refund = harga item
+                $d->save();
+                $this->recomputeHeaderStatus($d->header);
+            });
+            return back()->with('success', "Item {$d->item_id} diajukan RETUR. Menunggu refund dari supplier.");
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal retur item: ' . $e->getMessage());
+        }
+    }
+
+    /** Konfirmasi refund retur diterima -> kas MASUK, status item jadi Retur Selesai. */
+    public function refundItem(Request $request, string $batch_id)
+    {
+        $request->validate(['nilai_refund' => 'nullable|numeric|min:0']);
+        $d = BelanjaDetail::with('header')->findOrFail($batch_id);
+        if ($d->status_terima !== 'Retur') return back()->with('error', 'Item ini tidak sedang menunggu refund.');
+        try {
+            DB::transaction(function () use ($d, $request) {
+                $refund = $request->filled('nilai_refund') ? (float) $request->nilai_refund : (float) ($d->nilai_refund ?? $d->harga_total_item);
+                $header = $d->header;
+                if ($header->akun_bayar && $refund > 0) {
+                    \App\Models\MutasiKas::catat($header->akun_bayar, 'masuk', $refund, 'retur_belanja', $header->belanja_id, 'Refund retur ' . $d->item_id . ' (' . $header->belanja_id . ')', null, now()->toDateString());
+                }
+                $d->nilai_refund = $refund;
+                $d->tgl_refund = now()->toDateString();
+                $d->status_terima = 'Retur Selesai';
+                $d->save();
+                $this->recomputeHeaderStatus($header);
+            });
+            return back()->with('success', "Refund retur {$d->item_id} diterima. Kas masuk.");
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal catat refund: ' . $e->getMessage());
+        }
+    }
+
+    /** Tandai belanja SELESAI (arsip) — hanya jika semua item beres (Diterima/Retur Selesai). */
+    public function selesai(Request $request, string $belanja_id)
+    {
+        $header = BelanjaHeader::with('details')->findOrFail($belanja_id);
+        $belum = $header->details->whereIn('status_terima', ['Menunggu', 'Retur'])->count();
+        if ($belum > 0) {
+            return back()->with('error', "Masih ada $belum item belum beres (menunggu diterima / menunggu refund). Tuntaskan dulu sebelum Selesai.");
+        }
+        $header->status_belanja = 'Selesai';
+        $header->save();
+        return back()->with('success', "Belanja {$belanja_id} ditandai SELESAI (diarsipkan).");
+    }
+
+    /** Hapus BERSIH belanja salah-input: kembalikan kas & hapus total. Diblok bila stok sudah masuk. */
+    public function destroy(Request $request, string $belanja_id)
+    {
+        $header = BelanjaHeader::with('details')->findOrFail($belanja_id);
+        $adaStok = $header->stok_diterapkan || $header->details->where('status_terima', 'Diterima')->count() > 0;
+        if ($adaStok) {
+            return back()->with('error', 'Belanja ini stoknya sudah masuk — tidak bisa dihapus. Untuk barang yang sudah diterima, gunakan koreksi stok.');
+        }
+        try {
+            DB::transaction(function () use ($header) {
+                // Balikan SEMUA mutasi kas yang refnya belanja ini (keluar belanja, refund batal, refund retur) → saldo pulih.
+                \App\Models\MutasiKas::where('ref_id', $header->belanja_id)->delete();
+                $header->details()->delete();
+                $header->delete();
+            });
+            return back()->with('success', "Belanja {$belanja_id} dihapus bersih (seolah tak pernah diinput).");
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal hapus: ' . $e->getMessage());
+        }
     }
 }

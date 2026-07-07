@@ -36,11 +36,13 @@
         {{-- Filter Status --}}
         @php
             $statusFilters = [
-                ''           => ['Semua', 'bg-gray-700'],
-                'Dipesan'    => ['🟡 Dipesan', 'bg-yellow-500'],
-                'Dikirim'    => ['🚚 Di Jalan', 'bg-blue-600'],
-                'Diterima'   => ['✓ Diterima', 'bg-green-600'],
-                'Dibatalkan' => ['✕ Dibatalkan', 'bg-red-500'],
+                ''                 => ['Semua', 'bg-gray-700'],
+                'Dipesan'          => ['🟡 Dipesan', 'bg-yellow-500'],
+                'Dikirim'          => ['🚚 Di Jalan', 'bg-blue-600'],
+                'Sebagian Diterima'=> ['◐ Sebagian', 'bg-amber-600'],
+                'Diterima'         => ['✓ Diterima', 'bg-green-600'],
+                'Selesai'          => ['📦 Selesai', 'bg-gray-500'],
+                'Dibatalkan'       => ['✕ Dibatalkan', 'bg-red-500'],
             ];
         @endphp
         <div class="mb-4 flex flex-wrap gap-2 text-sm items-center">
@@ -88,26 +90,49 @@
                             <td class="px-4 py-3 text-center text-gray-600">{{ $b->details_count }}</td>
                             <td class="px-4 py-3 text-right font-medium text-gray-900">Rp {{ number_format($b->total_bayar, 0, ',', '.') }}</td>
                             <td class="px-4 py-3 text-center">
-                                @php $sc = ['Dipesan'=>'bg-yellow-100 text-yellow-800','Dikirim'=>'bg-blue-100 text-blue-800','Diterima'=>'bg-green-100 text-green-800','Dibatalkan'=>'bg-red-100 text-red-700'][$b->status_belanja] ?? 'bg-gray-100'; @endphp
+                                @php $sc = ['Dipesan'=>'bg-yellow-100 text-yellow-800','Dikirim'=>'bg-blue-100 text-blue-800','Sebagian Diterima'=>'bg-amber-100 text-amber-800','Diterima'=>'bg-green-100 text-green-800','Selesai'=>'bg-gray-200 text-gray-700','Dibatalkan'=>'bg-red-100 text-red-700'][$b->status_belanja] ?? 'bg-gray-100'; @endphp
                                 <span class="px-2 py-0.5 text-xs font-semibold rounded-full {{ $sc }}">{{ $b->status_belanja }}</span>
                             </td>
-                            <td class="px-4 py-3 text-right whitespace-nowrap space-x-2">
-                                @if($b->stok_diterapkan)
-                                    <span class="text-xs text-gray-400">stok masuk</span>
-                                @elseif($b->status_belanja === 'Dibatalkan')
-                                    <span class="text-xs text-gray-400">—</span>
+                            <td class="px-4 py-3 text-right whitespace-nowrap space-x-1.5">
+                                @php
+                                    $menungguCount = $b->details->where('status_terima','Menunggu')->count();
+                                    $semuaBeres = $b->details->count() > 0 && $b->details->whereIn('status_terima',['Menunggu','Retur'])->count() === 0;
+                                    $belumProses = in_array($b->status_belanja, ['Dipesan','Dikirim']);
+                                @endphp
+                                @if($b->status_belanja === 'Selesai')
+                                    <span class="text-xs text-gray-400">✓ selesai</span>
                                 @else
-                                    <button type="button" onclick="openKirimModal('{{ $b->belanja_id }}', @js($b->no_resi), @js($b->kurir))" class="text-blue-600 hover:text-blue-900 font-medium">🚚 Kirim</button>
-                                    <form method="POST" action="{{ route('belanja.update_status', $b->belanja_id) }}" class="inline">
-                                        @csrf
-                                        <input type="hidden" name="status_belanja" value="Diterima">
-                                        <button type="submit" class="text-green-600 hover:text-green-900 font-medium" onclick="return confirm('Tandai barang DITERIMA? Stok & harga rata-rata akan diperbarui.')">✓ Terima</button>
-                                    </form>
-                                    <form method="POST" action="{{ route('belanja.update_status', $b->belanja_id) }}" class="inline">
-                                        @csrf
-                                        <input type="hidden" name="status_belanja" value="Dibatalkan">
-                                        <button type="submit" class="text-red-500 hover:text-red-700" onclick="return confirm('Batalkan belanja ini?')">✕ Batal</button>
-                                    </form>
+                                    {{-- Kirim / Batal: hanya sebelum ada penerimaan --}}
+                                    @if($belumProses && !$b->stok_diterapkan)
+                                        <button type="button" onclick="openKirimModal('{{ $b->belanja_id }}', @js($b->no_resi), @js($b->kurir))" class="text-blue-600 hover:text-blue-900 font-medium">🚚 Kirim</button>
+                                        <form method="POST" action="{{ route('belanja.update_status', $b->belanja_id) }}" class="inline">
+                                            @csrf
+                                            <input type="hidden" name="status_belanja" value="Diterima">
+                                            <button type="submit" class="text-green-600 hover:text-green-900 font-medium" onclick="return confirm('Terima SEMUA item? Stok & harga rata-rata diperbarui.')">✓ Terima Semua</button>
+                                        </form>
+                                        <form method="POST" action="{{ route('belanja.update_status', $b->belanja_id) }}" class="inline">
+                                            @csrf
+                                            <input type="hidden" name="status_belanja" value="Dibatalkan">
+                                            <button type="submit" class="text-red-500 hover:text-red-700" onclick="return confirm('Batalkan belanja ini? (masalah pembelian, bukan salah input)')">✕ Batal</button>
+                                        </form>
+                                    @endif
+                                    {{-- Selesai: semua item beres --}}
+                                    @if($b->status_belanja === 'Diterima' && $semuaBeres)
+                                        <form method="POST" action="{{ route('belanja.selesai', $b->belanja_id) }}" class="inline">
+                                            @csrf
+                                            <button type="submit" class="text-gray-600 hover:text-gray-900 font-medium" onclick="return confirm('Tandai SELESAI & arsipkan? Keluar dari daftar aktif.')">📦 Selesai</button>
+                                        </form>
+                                    @endif
+                                    {{-- Hapus bersih: hanya bila belum ada stok masuk (salah input) --}}
+                                    @if(!$b->stok_diterapkan)
+                                        <form method="POST" action="{{ route('belanja.destroy', $b->belanja_id) }}" class="inline" onsubmit="return confirm('HAPUS BERSIH belanja {{ $b->belanja_id }}? Kas dikembalikan & data hilang total (untuk salah input). Tidak bisa dibatalkan.')">
+                                            @csrf @method('DELETE')
+                                            <button type="submit" class="text-red-400 hover:text-red-700" title="Hapus bersih (salah input)">🗑</button>
+                                        </form>
+                                    @endif
+                                    @if($menungguCount > 0 && $b->status_belanja !== 'Dibatalkan')
+                                        <div class="text-[11px] text-gray-400 mt-0.5">buka ▶ untuk terima/retur per item</div>
+                                    @endif
                                 @endif
                             </td>
                         </tr>
@@ -121,22 +146,55 @@
                                             <th class="text-left py-1 font-medium">Item</th>
                                             <th class="text-right py-1 font-medium">Qty</th>
                                             <th class="text-right py-1 font-medium">Harga Total</th>
-                                            <th class="text-right py-1 font-medium">Harga Net/Unit</th>
+                                            <th class="text-left py-1 font-medium pl-4">Penerimaan</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         @foreach($b->details as $d)
-                                            @php $nama = $b->jenis === 'bibit' ? ($namaBibit[$d->item_id] ?? null) : ($namaKomponen[$d->item_id] ?? null); @endphp
-                                            <tr class="border-t border-gray-200">
+                                            @php
+                                                $nama = $b->jenis === 'bibit' ? ($namaBibit[$d->item_id] ?? null) : ($namaKomponen[$d->item_id] ?? null);
+                                                $satuan = $b->jenis === 'bibit' ? 'ml' : ($satuanKomponen[$d->item_id] ?? 'pcs');
+                                                $st = $d->status_terima ?? 'Menunggu';
+                                                $bisaProses = $b->status_belanja !== 'Dibatalkan';
+                                            @endphp
+                                            <tr class="border-t border-gray-200 align-top">
                                                 <td class="py-1.5 text-gray-800">
                                                     {{ $d->item_id }}
                                                     @if($nama)<span class="text-gray-500">· {{ $nama }}</span>@endif
                                                     <span class="block text-xs text-gray-400">batch: {{ $d->batch_id }}</span>
                                                 </td>
-                                                @php $satuan = $b->jenis === 'bibit' ? 'ml' : ($satuanKomponen[$d->item_id] ?? 'pcs'); @endphp
-                                                <td class="py-1.5 text-right text-gray-700">{{ rtrim(rtrim(number_format($d->qty, 2, ',', '.'), '0'), ',') }} {{ $satuan }}</td>
-                                                <td class="py-1.5 text-right text-gray-700">Rp {{ number_format($d->harga_total_item, 0, ',', '.') }}</td>
-                                                <td class="py-1.5 text-right text-gray-500">Rp {{ number_format($d->harga_net_per_unit, 2, ',', '.') }}</td>
+                                                <td class="py-1.5 text-right text-gray-700 whitespace-nowrap">{{ rtrim(rtrim(number_format($d->qty, 2, ',', '.'), '0'), ',') }} {{ $satuan }}</td>
+                                                <td class="py-1.5 text-right text-gray-700 whitespace-nowrap">Rp {{ number_format($d->harga_total_item, 0, ',', '.') }}</td>
+                                                <td class="py-1.5 pl-4">
+                                                    @if($st === 'Menunggu')
+                                                        @if($bisaProses)
+                                                            <div class="flex gap-1.5 items-center">
+                                                                <form method="POST" action="{{ route('belanja.item_terima', $d->batch_id) }}" class="inline" onsubmit="return confirm('Terima item ini & masukkan ke stok?')">
+                                                                    @csrf
+                                                                    <button class="px-2 py-0.5 text-xs rounded bg-green-600 text-white hover:bg-green-700">✓ Terima</button>
+                                                                </form>
+                                                                <button type="button" onclick="openReturModal('{{ $d->batch_id }}','{{ $d->item_id }}')" class="px-2 py-0.5 text-xs rounded bg-amber-500 text-white hover:bg-amber-600">↩ Retur</button>
+                                                            </div>
+                                                        @else
+                                                            <span class="text-xs text-gray-400">—</span>
+                                                        @endif
+                                                    @elseif($st === 'Diterima')
+                                                        <span class="text-xs font-semibold text-green-700">✓ Diterima{{ $d->tgl_terima ? ' · '.\Illuminate\Support\Carbon::parse($d->tgl_terima)->format('d/m') : '' }}</span>
+                                                    @elseif($st === 'Retur')
+                                                        <div>
+                                                            <span class="text-xs font-semibold text-amber-700">↩ Retur · menunggu refund</span>
+                                                            @if($d->resi_retur)<span class="block text-xs text-gray-400">resi balik: {{ $d->resi_retur }}</span>@endif
+                                                            @if($d->catatan_terima)<span class="block text-xs text-gray-400">“{{ $d->catatan_terima }}”</span>@endif
+                                                            <form method="POST" action="{{ route('belanja.item_refund', $d->batch_id) }}" class="mt-1" onsubmit="return confirm('Konfirmasi dana refund Rp {{ number_format($d->nilai_refund ?? $d->harga_total_item,0,',','.') }} sudah masuk?')">
+                                                                @csrf
+                                                                <button class="px-2 py-0.5 text-xs rounded bg-indigo-600 text-white hover:bg-indigo-700">💰 Refund Diterima</button>
+                                                            </form>
+                                                        </div>
+                                                    @elseif($st === 'Retur Selesai')
+                                                        <span class="text-xs text-gray-500">↩ Retur selesai{{ $d->tgl_refund ? ' · refund '.\Illuminate\Support\Carbon::parse($d->tgl_refund)->format('d/m') : '' }}</span>
+                                                        @if($d->resi_retur)<span class="block text-xs text-gray-400">resi: {{ $d->resi_retur }}</span>@endif
+                                                    @endif
+                                                </td>
                                             </tr>
                                         @endforeach
                                     </tbody>
@@ -186,7 +244,43 @@
   </div>
 </div>
 
+<!-- Modal Retur (alasan + resi balik) -->
+<div id="returModal" class="fixed z-50 inset-0 overflow-y-auto hidden" role="dialog" aria-modal="true">
+  <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+    <div class="fixed inset-0 bg-gray-500 bg-opacity-40" onclick="document.getElementById('returModal').classList.add('hidden')"></div>
+    <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+    <div class="relative z-10 inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl sm:my-8 sm:align-middle sm:max-w-md sm:w-full">
+      <form id="returForm" method="POST" action="">
+        @csrf
+        <div class="bg-white px-4 pt-5 pb-4 sm:p-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-1">Ajukan Retur — <span id="returItemLabel" class="text-amber-700"></span></h3>
+          <p class="text-sm text-gray-500 mb-4">Item ini <b>tidak masuk stok</b>. Dana refund <b>belum</b> masuk — nanti dikonfirmasi saat supplier mengembalikan.</p>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Alasan retur <span class="text-gray-400">(opsional)</span></label>
+              <input type="text" name="catatan_terima" maxlength="255" class="mt-1 block w-full border-gray-300 rounded-md border px-3 py-2 text-sm" placeholder="Cth: aroma tidak sesuai pesanan">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Resi retur <span class="text-gray-400">(opsional)</span></label>
+              <input type="text" name="resi_retur" maxlength="100" class="mt-1 block w-full border-gray-300 rounded-md border px-3 py-2 text-sm" placeholder="No resi pengiriman balik ke supplier">
+            </div>
+          </div>
+        </div>
+        <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+          <button type="submit" class="w-full inline-flex justify-center rounded-md px-4 py-2 bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 sm:ml-3 sm:w-auto">Ajukan Retur</button>
+          <button type="button" onclick="document.getElementById('returModal').classList.add('hidden')" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 px-4 py-2 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script>
+    function openReturModal(batchId, itemId) {
+        document.getElementById('returForm').action = '/belanja/item/' + encodeURIComponent(batchId) + '/retur';
+        document.getElementById('returItemLabel').textContent = itemId;
+        document.getElementById('returModal').classList.remove('hidden');
+    }
     function openKirimModal(belanjaId, resi, kurir) {
         document.getElementById('kirimForm').action = '/belanja/' + belanjaId + '/status';
         document.getElementById('kirimResi').value = resi || '';
