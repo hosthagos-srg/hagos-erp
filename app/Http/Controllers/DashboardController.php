@@ -344,10 +344,30 @@ class DashboardController extends Controller
             ->get()
             ->keyBy('label_key');
 
+        // Jumlah BOTOL (SUM qty) per periode — dari detail, kecuali batal/gratis/induk-bundle.
+        $botolRows = DB::table('penjualan_details as d')
+            ->join('penjualan_headers as h', 'h.internal_id', '=', 'd.internal_id')
+            ->where('h.status_pesanan', '!=', 'Batal')
+            ->where('h.channel', '!=', 'Gratis')
+            ->where('d.sku_id', 'not like', 'BUNDLE%')
+            ->when($isPerJam,
+                fn($q) => $q->whereDate('h.created_at', $awal),
+                fn($q) => $q->whereBetween('h.tgl_pesanan', [$awal, $akhir])
+            )
+            ->selectRaw("
+                DATE_FORMAT(h." . ($isPerJam ? "created_at" : "tgl_pesanan") . ", '{$groupFormat}') as label_key,
+                SUM(d.qty) as total_botol
+            ")
+            ->groupBy('label_key')
+            ->orderBy('label_key')
+            ->get()
+            ->keyBy('label_key');
+
         // Bangun label lengkap (isi 0 untuk slot yang kosong)
         $labels = [];
         $dataPesanan = [];
         $dataOmset = [];
+        $dataBotol = [];
 
         if ($isPerJam) {
             for ($h = 0; $h < 24; $h++) {
@@ -355,6 +375,7 @@ class DashboardController extends Controller
                 $labels[] = $key;
                 $dataPesanan[] = (int) ($rows[$key]->jumlah_pesanan ?? 0);
                 $dataOmset[] = (float) ($rows[$key]->total_omset ?? 0);
+                $dataBotol[] = (int) ($botolRows[$key]->total_botol ?? 0);
             }
         } else {
             $current = \Carbon\Carbon::parse($awal);
@@ -364,6 +385,7 @@ class DashboardController extends Controller
                 $labels[] = $current->format('d M');
                 $dataPesanan[] = (int) ($rows[$key]->jumlah_pesanan ?? 0);
                 $dataOmset[] = (float) ($rows[$key]->total_omset ?? 0);
+                $dataBotol[] = (int) ($botolRows[$key]->total_botol ?? 0);
                 $current->addDay();
             }
         }
@@ -371,14 +393,17 @@ class DashboardController extends Controller
         // Ringkasan
         $totalPesanan = array_sum($dataPesanan);
         $totalOmset = array_sum($dataOmset);
+        $totalBotol = array_sum($dataBotol);
 
         return response()->json([
             'labels' => $labels,
             'pesanan' => $dataPesanan,
             'omset' => $dataOmset,
+            'botol' => $dataBotol,
             'ringkasan' => [
                 'total_pesanan' => $totalPesanan,
                 'total_omset' => $totalOmset,
+                'total_botol' => $totalBotol,
             ],
         ]);
     }

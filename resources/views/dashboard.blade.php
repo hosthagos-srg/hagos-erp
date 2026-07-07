@@ -137,10 +137,14 @@
             </div>
 
             {{-- Kartu ringkasan periode --}}
-            <div class="grid grid-cols-2 gap-0 border-b border-gray-100">
+            <div class="grid grid-cols-3 gap-0 border-b border-gray-100">
                 <div class="px-6 py-3 border-r border-gray-100">
                     <p class="text-xs text-gray-400">Total Pesanan</p>
                     <p id="ringkasan-pesanan" class="text-2xl font-bold text-indigo-600">—</p>
+                </div>
+                <div class="px-6 py-3 border-r border-gray-100">
+                    <p class="text-xs text-gray-400">Total Botol</p>
+                    <p id="ringkasan-botol" class="text-2xl font-bold text-amber-600">—</p>
                 </div>
                 <div class="px-6 py-3">
                     <p class="text-xs text-gray-400">Net Omset</p>
@@ -319,6 +323,7 @@ async function loadGrafik(params = {}) {
 function renderGrafik(data) {
     // Ringkasan
     document.getElementById('ringkasan-pesanan').textContent = data.ringkasan.total_pesanan;
+    document.getElementById('ringkasan-botol').textContent = (data.ringkasan.total_botol ?? 0) + ' pcs';
     document.getElementById('ringkasan-omset').textContent = formatRupiahFull(data.ringkasan.total_omset);
 
     // Subtitle
@@ -343,6 +348,16 @@ function renderGrafik(data) {
                     data: data.pesanan,
                     backgroundColor: 'rgba(99, 102, 241, 0.15)',
                     borderColor: 'rgba(99, 102, 241, 0.8)',
+                    borderWidth: 2,
+                    borderRadius: 4,
+                    yAxisID: 'yPesanan',
+                    order: 3,
+                },
+                {
+                    label: 'Botol',
+                    data: data.botol,
+                    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                    borderColor: 'rgba(245, 158, 11, 0.85)',
                     borderWidth: 2,
                     borderRadius: 4,
                     yAxisID: 'yPesanan',
