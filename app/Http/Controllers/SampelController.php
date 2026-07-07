@@ -6,11 +6,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\SampelAffiliate;
 use App\Models\MasterProduk;
-use App\Models\MasterResep;
-use App\Models\MasterBibit;
 use App\Models\MasterKategori;
-use App\Models\StokJadiLog;
+use App\Models\PenjualanHeader;
+use App\Models\PenjualanDetail;
 use App\Services\HppService;
+use App\Services\RacikService;
 
 class SampelController extends Controller
 {
@@ -58,50 +58,42 @@ class SampelController extends Controller
         $qty = (int) $request->qty;
 
         DB::transaction(function () use ($request, $hpp, $sku, $qty) {
-            $produk = MasterProduk::where('sku_id', $sku)->first();
-            $resep = MasterResep::where('sku_id', $sku)->first();
+            // HPP diestimasi dari resep (utk laporan biaya promo); stok DIPOTONG saat diracik nanti.
+            $bd = $hpp->breakdown($sku, 'Offline', $qty);
+            $hppSatuan = (float) ($bd['hpp_per_unit'] ?? 0);
+            $totalHpp  = (float) ($bd['hpp_total'] ?? $hppSatuan * $qty);
 
-            // T11 dulu, sisanya racik baru (pola sama dgn RacikService)
-            $stokT11 = $produk ? (int) $produk->stok_t11 : 0;
-            $hppT11  = $produk ? (float) $produk->hpp_t11 : 0;
-            $bare    = $hpp->bareBottle($sku); // HPP botol telanjang utk racik baru
-
-            $qtyT11 = min($qty, max(0, $stokT11));
-            $qtyRacik = $qty - $qtyT11;
-
-            // Potong T11
-            if ($qtyT11 > 0 && $produk) {
-                $produk->stok_t11 -= $qtyT11;
-                $produk->save();
-                StokJadiLog::catat($sku, 'keluar', $qtyT11, 'sampel', $hppT11, 'SAMPEL', $request->dicatat_oleh);
-            }
-            // Potong bibit + komponen botol telanjang (botol, absolute) utk racik baru
-            if ($qtyRacik > 0) {
-                if ($resep && $resep->bibit_id) {
-                    $bibit = MasterBibit::where('bibit_id', $resep->bibit_id)->first();
-                    if ($bibit) {
-                        $bibit->stok_ml = (float) $bibit->stok_ml - ((float) $resep->ml_bibit_utama * $qtyRacik);
-                        $bibit->save();
-                    }
-                }
-                // Komponen ber-stok pada botol telanjang (botol + absolute) — selaras dgn bareBottle
-                foreach (($hpp->breakdown($sku, 'Offline')['komponen_usage']['bare'] ?? []) as $u) {
-                    $komp = \App\Models\MasterKomponen::where('komponen_id', $u['id'])->first();
-                    if ($komp && strtolower((string) $komp->track_stok) !== 'tidak') {
-                        $komp->stok = (float) $komp->stok - ($u['qty'] * $qtyRacik);
-                        $komp->save();
-                    }
-                }
-            }
-
-            $totalHpp = ($qtyT11 * $hppT11) + ($qtyRacik * $bare);
-            $hppSatuan = $qty > 0 ? $totalHpp / $qty : 0;
+            // Buat pesanan "Gratis" (harga 0) yang MASUK ANTREAN RACIK.
+            // status_pembayaran 'Gratis' → otomatis dikecualikan dari P&L (bukan omzet).
+            $header = PenjualanHeader::create([
+                'channel'           => 'Gratis',
+                'metode_pengiriman' => 'Kirim',
+                'tgl_pesanan'       => $request->tanggal,
+                'status_pesanan'    => 'Menunggu',
+                'status_pembayaran' => 'Gratis',
+                'gmv_kotor'         => 0,
+                'diskon_manual'     => 0,
+                'nama_pembeli'      => $request->nama_affiliate,
+                'ekstra_tester'     => 0,
+                'catatan'           => 'Produk gratis · ' . $request->platform . ($request->catatan ? ' · ' . $request->catatan : ''),
+                'diracik_oleh'      => null,
+            ]);
+            PenjualanDetail::create([
+                'internal_id'  => $header->internal_id,
+                'sku_id'       => $sku,
+                'qty'          => $qty,
+                'harga_satuan' => 0,
+                'subtotal'     => 0,
+                'hpp_satuan'   => null,   // null → muncul di antrean racik
+                'margin_satuan' => null,
+            ]);
 
             SampelAffiliate::create([
                 'tanggal'        => $request->tanggal,
                 'platform'       => $request->platform,
                 'nama_affiliate' => $request->nama_affiliate,
                 'sku_id'         => $sku,
+                'internal_id'    => $header->internal_id,
                 'qty'            => $qty,
                 'hpp_satuan'     => round($hppSatuan, 2),
                 'total_hpp'      => round($totalHpp, 2),
@@ -110,22 +102,24 @@ class SampelController extends Controller
             ]);
         });
 
-        return redirect()->route('sampel.index')->with('success', "Produk gratis {$qty}x dicatat untuk {$request->nama_affiliate} ({$request->platform}).");
+        return redirect()->route('sampel.index')->with('success', "Produk gratis {$qty}x dicatat & masuk ANTREAN RACIK untuk {$request->nama_affiliate} ({$request->platform}). Stok bibit terpotong saat diracik.");
     }
 
-    public function destroy(SampelAffiliate $sampel)
+    public function destroy(SampelAffiliate $sampel, RacikService $racik)
     {
-        // Kembalikan stok (balikkan ke T11 sebagai botol telanjang, paling aman & tak ganggu bibit yg sudah terpakai)
-        DB::transaction(function () use ($sampel) {
-            $produk = MasterProduk::where('sku_id', $sampel->sku_id)->first();
-            if ($produk) {
-                $produk->stok_t11 = (int) $produk->stok_t11 + (int) $sampel->qty;
-                $produk->save();
-                StokJadiLog::catat($sampel->sku_id, 'masuk', $sampel->qty, 'batal_sampel', $sampel->hpp_satuan, 'SAMPEL', null);
+        DB::transaction(function () use ($sampel, $racik) {
+            $header = $sampel->internal_id ? PenjualanHeader::with('details')->find($sampel->internal_id) : null;
+            if ($header) {
+                // Jika sudah diracik (stok terpotong) → kembalikan stok dulu, baru hapus pesanannya.
+                if ($header->details->whereNotNull('hpp_satuan')->count() > 0) {
+                    $racik->kembalikanStokRacik($header);
+                }
+                $header->details()->delete();
+                $header->delete();
             }
             $sampel->delete();
         });
 
-        return redirect()->back()->with('success', 'Catatan produk gratis dihapus & stok dikembalikan ke Stok Produk Jadi.');
+        return redirect()->back()->with('success', 'Catatan produk gratis & pesanan racik-nya dihapus (stok dikembalikan bila sudah diracik).');
     }
 }

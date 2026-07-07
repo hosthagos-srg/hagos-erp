@@ -35,7 +35,7 @@ class DashboardController extends Controller
         // Persentase perubahan vs periode sebelumnya (null jika tak ada pembanding)
         $pct = fn ($cur, $prev) => ($prev > 0) ? (($cur - $prev) / $prev * 100) : null;
 
-        $jmlPesanan = fn ($a, $b) => DB::table('penjualan_headers')->whereBetween('tgl_pesanan', [$a, $b])->count();
+        $jmlPesanan = fn ($a, $b) => DB::table('penjualan_headers')->where('channel', '!=', 'Gratis')->whereBetween('tgl_pesanan', [$a, $b])->count();
 
         // ── Ringkasan pesanan ──
         $totalPesanan = $jmlPesanan($awalMgg, $akhirMgg);
@@ -45,6 +45,7 @@ class DashboardController extends Controller
 
         $belumCairQuery = DB::table('penjualan_headers')
             ->where('status_pesanan', '!=', 'Batal')
+            ->where('channel', '!=', 'Gratis') // produk gratis bukan "uang belum cair"
             ->where(function ($q) {
                 $q->whereNull('status_pembayaran')->orWhereNotIn('status_pembayaran', ['Cair', 'Lunas']);
             });
@@ -53,6 +54,7 @@ class DashboardController extends Controller
         // Melewati jatuh tempo: Piutang reseller > 7 hari ATAU settlement marketplace belum cair > 12 hari
         $totalLewatTempo = DB::table('penjualan_headers')
             ->where('status_pesanan', '!=', 'Batal')
+            ->where('channel', '!=', 'Gratis')
             ->where(function ($q) {
                 $q->where(function ($q2) {
                     $q2->where('status_pembayaran', 'Piutang')->whereDate('tgl_pesanan', '<=', now()->subDays(7));
@@ -388,6 +390,7 @@ class DashboardController extends Controller
             ->join('penjualan_headers as h', 'd.internal_id', '=', 'h.internal_id')
             ->join('master_produks as p', 'd.sku_id', '=', 'p.sku_id')
             ->where('h.status_pesanan', '!=', 'Batal')
+            ->where('h.channel', '!=', 'Gratis') // produk gratis bukan penjualan
             // Kecualikan baris INDUK bundle (BUNDLE*) — omzet & qty-nya sudah terwakili
             // oleh baris anak (parfum asli, dari_bundle=1). Tanpa ini omzet bundle dobel.
             ->where('d.sku_id', 'not like', 'BUNDLE%')
