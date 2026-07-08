@@ -54,6 +54,7 @@
             ['route' => 'pelanggan.kinerja', 'pattern' => 'pelanggan.kinerja', 'label' => 'Kinerja Pelanggan/Reseller'],
             ['route' => 'laporan.retur',   'pattern' => 'laporan.retur', 'label' => 'Retur / Pembatalan'],
             ['route' => 'laporan.diskon',  'pattern' => 'laporan.diskon', 'label' => 'Diskon Diberikan'],
+            ['route' => 'laporan.afiliasi','pattern' => 'laporan.afiliasi', 'label' => 'Afiliasi'],
             ['route' => 'laporan.pajak',   'pattern' => 'laporan.pajak', 'label' => 'Pajak PPh Final 0,5%'],
             ['route' => 'neraca.index',    'pattern' => 'neraca.*',    'label' => 'Neraca'],
             ['route' => 'biaya_marketplace.index', 'pattern' => 'biaya_marketplace.*', 'label' => 'Biaya Marketplace'],

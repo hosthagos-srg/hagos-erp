@@ -255,6 +255,40 @@ class LaporanController extends Controller
     }
 
     /**
+     * Laporan Afiliasi — pesanan yang kena "Komisi Afiliasi" di settlement TikTok (penanda afiliasi).
+     * Menjawab: berapa besar afiliasi berkontribusi & berapa komisi yang dibayar.
+     */
+    public function afiliasi(Request $request)
+    {
+        $dari = $request->input('dari', now()->startOfMonth()->toDateString());
+        $sampai = $request->input('sampai', now()->toDateString());
+
+        $base = DB::table('penjualan_headers')
+            ->where('status_pesanan', '!=', 'Batal')
+            ->where('komisi_afiliasi', '>', 0)
+            ->whereBetween('tgl_pesanan', [$dari, $sampai]);
+
+        $agg = (clone $base)->selectRaw('COUNT(*) c, SUM(gmv_kotor) g, SUM(komisi_afiliasi) k, SUM(COALESCE(net_settlement, gmv_kotor)) net')->first();
+        $totalPesananAff = (int) ($agg->c ?? 0);
+        $gmvAff    = (float) ($agg->g ?? 0);
+        $komisiAff = (float) ($agg->k ?? 0);
+        $netAff    = (float) ($agg->net ?? 0);
+
+        // Pembanding: seluruh penjualan (non-batal, non-gratis) di periode → untuk hitung %
+        $totAll = DB::table('penjualan_headers')->where('status_pesanan', '!=', 'Batal')->where('channel', '!=', 'Gratis')
+            ->whereBetween('tgl_pesanan', [$dari, $sampai])->selectRaw('COUNT(*) c, SUM(gmv_kotor) g')->first();
+        $pctPesanan = ($totAll->c ?? 0) > 0 ? $totalPesananAff / $totAll->c * 100 : 0;
+        $pctGmv     = ($totAll->g ?? 0) > 0 ? $gmvAff / $totAll->g * 100 : 0;
+        $komisiPct  = $gmvAff > 0 ? $komisiAff / $gmvAff * 100 : 0;
+
+        $detail = (clone $base)->orderByDesc('tgl_pesanan')->orderByDesc('created_at')
+            ->get(['internal_id', 'external_order_id', 'channel', 'tgl_pesanan', 'nama_pembeli', 'gmv_kotor', 'komisi_afiliasi', 'net_settlement']);
+
+        return view('laporan.afiliasi', compact('dari', 'sampai', 'totalPesananAff', 'gmvAff', 'komisiAff', 'netAff',
+            'pctPesanan', 'pctGmv', 'komisiPct', 'detail'));
+    }
+
+    /**
      * Laporan Pajak PPh Final UMKM 0,5% (PP 55/2022). Basis = peredaran bruto per bulan.
      * Skema 'pribadi' = WP Orang Pribadi, Rp500 jt/tahun pertama BEBAS PPh (dihitung kumulatif).
      * Skema 'penuh' = 0,5% atas seluruh bruto (mis. WP Badan). Estimasi — konfirmasi ke konsultan pajak.

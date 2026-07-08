@@ -322,6 +322,8 @@ class UploadController extends Controller
         $grossByOrder = []; // omset/subtotal otoritatif dari settlement (untuk hitung potongan = gross - net)
         $feeByOrder = []; // rincian potongan per pesanan: [orderId][nama biaya] => jumlah (bertanda)
         $dateByOrder = []; // F1: tanggal rilis dana per pesanan (dari file, bukan tgl upload)
+        $afiliasiByOrder = []; // ADITIF (TikTok): komisi afiliasi per pesanan — hanya utk PENANDA afiliasi.
+                               // TIDAK dipakai di net/margin/HPP (net_settlement sudah otoritatif).
 
         // Kolom OMSET (subtotal/pendapatan) otoritatif per platform
         $grossCols = $platform === 'TikTok'
@@ -408,6 +410,13 @@ class UploadController extends Controller
                     // Jumlahkan semua baris untuk order yang sama (potongan iklan/LIVE bisa baris terpisah)
                     $netByOrder[$orderId] = ($netByOrder[$orderId] ?? 0) + $netIncome;
 
+                    // ADITIF — PENANDA AFILIASI (TikTok): baca kolom "Komisi Afiliasi" saja.
+                    // Tidak menyentuh net/gross/fee/margin/HPP. Hanya untuk tahu pesanan ini afiliasi.
+                    if ($platform === 'TikTok' && isset($colMap['Komisi Afiliasi'])) {
+                        $va = $this->parseNumber($cells[$colMap['Komisi Afiliasi']] ?? 0);
+                        if ($va != 0) $afiliasiByOrder[$orderId] = ($afiliasiByOrder[$orderId] ?? 0) + $va;
+                    }
+
                     // Omset/subtotal otoritatif dari kolom yang sudah dipetakan per platform
                     $grossRow = 0;
                     foreach ($grossCols as $gc) {
@@ -463,6 +472,8 @@ class UploadController extends Controller
                 $header->status_pembayaran = 'Cair';
                 $header->tgl_cair_saldo = $tglCair;
                 $header->akun_masuk = $akunMp;
+                // ADITIF: penanda afiliasi (komisi afiliasi, positif). Tidak memengaruhi net/margin/HPP/kas.
+                $header->komisi_afiliasi = round(abs($afiliasiByOrder[$orderId] ?? 0), 2);
                 $header->save();
                 $countSettled++;
 
