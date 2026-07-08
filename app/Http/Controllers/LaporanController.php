@@ -213,6 +213,48 @@ class LaporanController extends Controller
     }
 
     /**
+     * Laporan Diskon Diberikan — khusus penjualan NON-marketplace (Offline/Reseller/Website).
+     * Diskon marketplace datang dari settlement, bukan "diskon yang kita beri", jadi dikecualikan.
+     */
+    public function diskon(Request $request)
+    {
+        $dari = $request->input('dari', now()->startOfMonth()->toDateString());
+        $sampai = $request->input('sampai', now()->toDateString());
+        $channel = $request->input('channel');
+
+        $base = DB::table('penjualan_headers')
+            ->where('status_pesanan', '!=', 'Batal')
+            ->where('channel', 'not like', 'Marketplace%')
+            ->where('channel', '!=', 'Gratis')
+            ->where('diskon_manual', '>', 0);
+        if ($dari)    $base->whereDate('tgl_pesanan', '>=', $dari);
+        if ($sampai)  $base->whereDate('tgl_pesanan', '<=', $sampai);
+        if ($channel) $base->where('channel', $channel);
+
+        $agg = (clone $base)->selectRaw('COUNT(*) c, SUM(diskon_manual) d, SUM(gmv_kotor) g')->first();
+        $totalPesanan    = (int) ($agg->c ?? 0);
+        $totalDiskon     = (float) ($agg->d ?? 0);
+        $totalOmzetKotor = (float) ($agg->g ?? 0);
+        $rataDiskonPct   = $totalOmzetKotor > 0 ? $totalDiskon / $totalOmzetKotor * 100 : 0;
+
+        $perChannel = (clone $base)->selectRaw('channel, COUNT(*) c, SUM(diskon_manual) d, SUM(gmv_kotor) g')
+            ->groupBy('channel')->orderByDesc('d')->get();
+
+        $perPelanggan = (clone $base)->selectRaw("COALESCE(NULLIF(nama_pembeli,''),'(tanpa nama)') pembeli, COUNT(*) c, SUM(diskon_manual) d")
+            ->groupBy('pembeli')->orderByDesc('d')->limit(15)->get();
+
+        $detail = (clone $base)->orderByDesc('tgl_pesanan')->orderByDesc('created_at')
+            ->get(['internal_id', 'external_order_id', 'channel', 'tgl_pesanan', 'nama_pembeli', 'gmv_kotor', 'diskon_manual']);
+
+        $channels = DB::table('penjualan_headers')->where('channel', 'not like', 'Marketplace%')
+            ->where('channel', '!=', 'Gratis')->where('diskon_manual', '>', 0)
+            ->distinct()->orderBy('channel')->pluck('channel');
+
+        return view('laporan.diskon', compact('dari', 'sampai', 'channel', 'channels',
+            'totalPesanan', 'totalDiskon', 'totalOmzetKotor', 'rataDiskonPct', 'perChannel', 'perPelanggan', 'detail'));
+    }
+
+    /**
      * Laporan Pajak PPh Final UMKM 0,5% (PP 55/2022). Basis = peredaran bruto per bulan.
      * Skema 'pribadi' = WP Orang Pribadi, Rp500 jt/tahun pertama BEBAS PPh (dihitung kumulatif).
      * Skema 'penuh' = 0,5% atas seluruh bruto (mis. WP Badan). Estimasi — konfirmasi ke konsultan pajak.
