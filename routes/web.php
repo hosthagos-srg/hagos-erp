@@ -122,6 +122,7 @@ Route::post('/kasbon', [App\Http\Controllers\KasbonController::class, 'store'])-
 Route::post('/kasbon/bayar', [App\Http\Controllers\KasbonController::class, 'bayar'])->name('kasbon.bayar');
 Route::get('/gaji', [App\Http\Controllers\GajiController::class, 'index'])->name('gaji.index');
 Route::post('/gaji', [App\Http\Controllers\GajiController::class, 'store'])->name('gaji.store');
+Route::put('/gaji/{gaji}', [App\Http\Controllers\GajiController::class, 'update'])->name('gaji.update');
 
 // Piutang & Aging
 Route::get('/piutang', [App\Http\Controllers\PiutangController::class, 'index'])->name('piutang.index');

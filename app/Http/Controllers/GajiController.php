@@ -107,4 +107,30 @@ class GajiController extends Controller
 
         return redirect()->route('gaji.index')->with('success', 'Gaji ' . $karyawan->nama . ' (' . $request->periode . ') Rp ' . number_format($gajiBersih, 0, ',', '.') . ' dibayarkan.');
     }
+
+    /**
+     * Edit gaji: HANYA Bulan Biaya (atribusi laba) + label periode/catatan.
+     * Nominal & kas TIDAK diubah (uang sudah keluar di tanggal transfer). Aman.
+     */
+    public function update(Request $request, Gaji $gaji)
+    {
+        $request->validate([
+            'periode'     => 'required|string|max:50',
+            'bulan_biaya' => 'required|date_format:Y-m',
+            'catatan'     => 'nullable|string',
+        ]);
+
+        DB::transaction(function () use ($request, $gaji) {
+            $gaji->periode     = $request->periode;
+            $gaji->bulan_biaya = $request->bulan_biaya . '-01';
+            $gaji->catatan     = $request->catatan;
+            $gaji->save();
+
+            // Selaraskan keterangan mutasi kas (mengandung periode) agar konsisten. Nominal/tanggal tetap.
+            MutasiKas::where('ref_id', 'GAJI-' . $gaji->id)->where('kategori', 'pengeluaran')
+                ->update(['keterangan' => 'Gaji · ' . ($gaji->karyawan->nama ?? '-') . ' · ' . $request->periode]);
+        });
+
+        return redirect()->route('gaji.index')->with('success', 'Gaji ' . ($gaji->karyawan->nama ?? '') . ' diperbarui — Bulan Biaya: ' . $request->bulan_biaya . '.');
+    }
 }

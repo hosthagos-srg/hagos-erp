@@ -121,24 +121,30 @@
                     <table class="min-w-full divide-y divide-gray-200 text-sm">
                         <thead class="bg-gray-50"><tr>
                             <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Periode</th>
+                            <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Bulan Biaya</th>
                             <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Karyawan</th>
-                            <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Tgl</th>
+                            <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Tgl Bayar</th>
                             <th class="px-4 py-2 text-right text-xs text-gray-500 uppercase">Pokok+Tunj</th>
                             <th class="px-4 py-2 text-right text-xs text-gray-500 uppercase">Pot. Kasbon</th>
                             <th class="px-4 py-2 text-right text-xs text-gray-500 uppercase">Diterima</th>
+                            <th class="px-4 py-2 text-center text-xs text-gray-500 uppercase">Aksi</th>
                         </tr></thead>
                         <tbody class="divide-y divide-gray-100">
                             @forelse($riwayat as $g)
                                 <tr>
                                     <td class="px-4 py-2 text-gray-700">{{ $g->periode }}</td>
+                                    <td class="px-4 py-2 whitespace-nowrap"><span class="text-xs font-semibold text-emerald-700">{{ $g->bulan_biaya ? $g->bulan_biaya->translatedFormat('M Y') : '—' }}</span></td>
                                     <td class="px-4 py-2 font-medium text-gray-800">{{ $g->karyawan->nama ?? '-' }}</td>
                                     <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ $g->tanggal_bayar->format('d/m/Y') }}</td>
                                     <td class="px-4 py-2 text-right text-gray-600">Rp {{ number_format($g->gaji_pokok + $g->tunjangan, 0, ',', '.') }}</td>
                                     <td class="px-4 py-2 text-right text-amber-700">{{ $g->potongan_kasbon > 0 ? 'Rp ' . number_format($g->potongan_kasbon, 0, ',', '.') : '-' }}</td>
                                     <td class="px-4 py-2 text-right font-semibold text-gray-900">Rp {{ number_format($g->gaji_bersih, 0, ',', '.') }}</td>
+                                    <td class="px-4 py-2 text-center">
+                                        <button type="button" onclick="openEditGaji({{ $g->id }}, @js($g->periode), '{{ $g->bulan_biaya ? $g->bulan_biaya->format('Y-m') : '' }}', @js($g->catatan))" class="text-indigo-600 hover:text-indigo-900 text-xs font-medium">✎ Edit</button>
+                                    </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400 italic">Belum ada gaji.</td></tr>
+                                <tr><td colspan="8" class="px-4 py-8 text-center text-gray-400 italic">Belum ada gaji.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -149,7 +155,51 @@
     </div>
 </div>
 
+<!-- Modal Edit Gaji (koreksi Bulan Biaya / label — tak menyentuh kas & nominal) -->
+<div id="editGajiModal" class="fixed z-50 inset-0 overflow-y-auto hidden" role="dialog" aria-modal="true">
+  <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+    <div class="fixed inset-0 bg-gray-500 bg-opacity-40" onclick="document.getElementById('editGajiModal').classList.add('hidden')"></div>
+    <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+    <div class="relative z-10 inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl sm:my-8 sm:align-middle sm:max-w-md sm:w-full">
+      <form id="editGajiForm" method="POST" action="">
+        @csrf
+        @method('PUT')
+        <div class="bg-white px-4 pt-5 pb-4 sm:p-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-1">Edit Gaji</h3>
+          <p class="text-sm text-gray-500 mb-4">Koreksi <b>Bulan Biaya</b> (bulan gaji masuk laba) & label. Nominal & kas <b>tidak berubah</b>.</p>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Bulan Biaya *</label>
+              <input type="month" name="bulan_biaya" id="eg-bulan" required class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+              <p class="text-[11px] text-gray-400 mt-0.5">Bulan gaji ini masuk laba</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Periode <span class="text-gray-400 font-normal text-xs">(label)</span></label>
+              <input type="text" name="periode" id="eg-periode" required class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Catatan <span class="text-gray-400 font-normal text-xs">(opsional)</span></label>
+              <input type="text" name="catatan" id="eg-catatan" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+            </div>
+          </div>
+        </div>
+        <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+          <button type="submit" class="w-full inline-flex justify-center rounded-md px-4 py-2 bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 sm:ml-3 sm:w-auto">Simpan</button>
+          <button type="button" onclick="document.getElementById('editGajiModal').classList.add('hidden')" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 px-4 py-2 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script>
+function openEditGaji(id, periode, bulanBiaya, catatan) {
+    document.getElementById('editGajiForm').action = '/gaji/' + id;
+    document.getElementById('eg-periode').value = periode || '';
+    document.getElementById('eg-bulan').value = bulanBiaya || '';
+    document.getElementById('eg-catatan').value = catatan || '';
+    document.getElementById('editGajiModal').classList.remove('hidden');
+}
 const KMAP = @json($kJs);
 function rupiah(n){ return 'Rp ' + Number(n||0).toLocaleString('id-ID'); }
 function onKaryawan() {
