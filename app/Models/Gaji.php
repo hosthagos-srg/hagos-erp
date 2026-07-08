@@ -10,6 +10,7 @@ class Gaji extends Model
     protected $guarded = [];
     protected $casts = [
         'tanggal_bayar'   => 'date',
+        'bulan_biaya'     => 'date',
         'gaji_pokok'      => 'float',
         'tunjangan'       => 'float',
         'potongan_kasbon' => 'float',

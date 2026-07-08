@@ -39,14 +39,20 @@
                         </select>
                         <p id="g-sisa" class="text-xs text-gray-400 mt-1"></p>
                     </div>
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Periode <span class="text-gray-400 font-normal text-xs">(label, cth: Juni 2026)</span></label>
+                        <input type="text" name="periode" placeholder="cth: Juni 2026" required class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                    </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Periode *</label>
-                            <input type="text" name="periode" placeholder="cth: Juni 2026" required class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Bulan Biaya *</label>
+                            <input type="month" name="bulan_biaya" value="{{ date('Y-m') }}" required class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                            <p class="text-[11px] text-gray-400 mt-0.5">Masuk laba bulan ini</p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Tgl Bayar *</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Tgl Bayar (transfer) *</label>
                             <input type="date" name="tanggal_bayar" value="{{ date('Y-m-d') }}" required class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                            <p class="text-[11px] text-gray-400 mt-0.5">Sesuai bukti transfer</p>
                         </div>
                     </div>
                     <div>

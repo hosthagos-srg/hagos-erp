@@ -34,6 +34,7 @@ class GajiController extends Controller
         $request->validate([
             'karyawan_id'     => 'required|exists:karyawan,id',
             'periode'         => 'required|string|max:50',
+            'bulan_biaya'     => 'required|date_format:Y-m', // bulan biaya masuk laba (mis. 2026-06)
             'tanggal_bayar'   => 'required|date',
             'gaji_pokok'      => 'required|numeric|min:0',
             'tunjangan'       => 'nullable|numeric|min:0',
@@ -67,6 +68,7 @@ class GajiController extends Controller
             $gaji = Gaji::create([
                 'karyawan_id'     => $karyawan->id,
                 'periode'         => $request->periode,
+                'bulan_biaya'     => $request->bulan_biaya . '-01', // simpan sbg tgl 1 bulan biaya
                 'tanggal_bayar'   => $request->tanggal_bayar,
                 'gaji_pokok'      => $pokok,
                 'tunjangan'       => $tunjangan,

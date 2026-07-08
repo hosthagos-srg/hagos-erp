@@ -56,10 +56,18 @@ class LaporanService
         $marginKotor = $totalOmset > 0 ? ($labaKotor / $totalOmset) * 100 : 0;
 
         // ── Biaya operasional ──
-        $totalPengeluaran = (float) MutasiKas::where('tipe', 'keluar')
+        // Gaji dibebankan ke BULAN BIAYA (accrual), bukan tanggal bayar — biar laba per bulan
+        // akurat walau transfer di bulan berikutnya. Kas tetap keluar di tanggal_bayar (mutasi
+        // 'GAJI-%' dikecualikan di sini agar tak dobel/salah bulan).
+        $pengeluaranNonGaji = (float) MutasiKas::where('tipe', 'keluar')
             ->where('kategori', 'pengeluaran')
+            ->where('ref_id', 'not like', 'GAJI-%')
             ->whereBetween('tanggal', [$awal, $akhir])
             ->sum('jumlah');
+        $totalGaji = (float) DB::table('gaji')
+            ->whereBetween('bulan_biaya', [$awal, $akhir])
+            ->selectRaw('SUM(gaji_pokok + tunjangan - potongan_lain) as t')->value('t');
+        $totalPengeluaran = round($pengeluaranNonGaji + $totalGaji, 2);
 
         $cicilan = CicilanPembayaran::where('status', 'lunas')
             ->whereBetween('tgl_bayar', [$awal, $akhir])
