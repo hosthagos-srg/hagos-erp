@@ -25,6 +25,63 @@
             </div>
         </header>
 
+        @if(session('success'))<div class="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm">{{ session('success') }}</div>@endif
+
+        {{-- ─── TARGET OMZET BULAN INI ───────────────────────── --}}
+        @php $t = $target; @endphp
+        <div class="bg-white rounded-2xl p-5 ring-1 ring-gray-200/70 shadow-sm mb-4">
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">🎯</span>
+                    <h2 class="font-bold text-gray-800">Target Omzet Bulan Ini</h2>
+                    <span class="text-xs text-gray-400">· hari ke-{{ $t['hari'] }}/{{ $t['hari_total'] }}</span>
+                </div>
+                <button type="button" onclick="document.getElementById('targetModal').classList.remove('hidden')" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">✎ Ubah Target</button>
+            </div>
+            <div class="flex items-end justify-between mb-2">
+                <p class="text-2xl font-bold text-gray-900">Rp {{ number_format($t['aktual'], 0, ',', '.') }} <span class="text-sm font-normal text-gray-400">/ Rp {{ number_format($t['target'], 0, ',', '.') }}</span></p>
+                <p class="text-lg font-bold {{ $t['on_track'] ? 'text-emerald-600' : 'text-amber-600' }}">{{ number_format($t['pct_raw'], 0) }}%</p>
+            </div>
+            {{-- progress bar + penanda "posisi ideal" --}}
+            <div class="w-full h-3 bg-gray-100 rounded-full overflow-hidden mb-2 relative">
+                <div class="h-full {{ $t['on_track'] ? 'bg-emerald-500' : 'bg-amber-500' }} rounded-full" style="width: {{ $t['pct'] }}%"></div>
+                <div class="absolute top-0 h-full w-0.5 bg-gray-500" style="left: {{ min(100, $t['hari'] / $t['hari_total'] * 100) }}%" title="Posisi ideal hari ini"></div>
+            </div>
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                <span class="px-2 py-0.5 rounded-full {{ $t['on_track'] ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700' }} font-semibold">{{ $t['on_track'] ? '🟢 On-track' : '🟡 Di bawah pace' }}</span>
+                @if($t['kurang'] > 0)
+                    <span class="text-gray-500">Butuh <b class="text-gray-800">Rp {{ number_format($t['per_hari'], 0, ',', '.') }}/hari</b> · {{ $t['hari_sisa'] }} hari lagi</span>
+                @else
+                    <span class="text-emerald-600 font-semibold">✓ Target tercapai! 🎉</span>
+                @endif
+                <span class="text-gray-400 ml-auto">Proyeksi akhir bulan: <b class="text-gray-600">Rp {{ number_format($t['proyeksi'], 0, ',', '.') }}</b></span>
+            </div>
+        </div>
+
+        {{-- Modal Ubah Target --}}
+        <div id="targetModal" class="fixed z-50 inset-0 overflow-y-auto hidden" role="dialog" aria-modal="true">
+          <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-40" onclick="document.getElementById('targetModal').classList.add('hidden')"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+            <div class="relative z-10 inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl sm:my-8 sm:align-middle sm:max-w-sm sm:w-full">
+              <form method="POST" action="{{ route('dashboard.target') }}">
+                @csrf
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6">
+                  <h3 class="text-lg font-medium text-gray-900 mb-1">Ubah Target Omzet Bulanan</h3>
+                  <p class="text-sm text-gray-500 mb-4">Berlaku untuk perhitungan progress & pace di dashboard.</p>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Target Omzet / Bulan (Rp)</label>
+                  <input type="number" name="omzet_target" min="0" step="1000000" value="{{ (int) $target['target'] }}" required class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                  <p class="text-[11px] text-gray-400 mt-1">Patokan: impas ~Rp 41jt · gaji 4,5jt/orang butuh ~Rp 41jt · target kamu Rp 60jt.</p>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                  <button type="submit" class="w-full inline-flex justify-center rounded-md px-4 py-2 bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 sm:ml-3 sm:w-auto">Simpan</button>
+                  <button type="button" onclick="document.getElementById('targetModal').classList.add('hidden')" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 px-4 py-2 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto">Batal</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
         {{-- ─── STRIP OMZET ─────────────────────────────────── --}}
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
             <a href="{{ route('penjualan.index') }}" class="group bg-white rounded-2xl p-5 ring-1 ring-gray-200/70 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">

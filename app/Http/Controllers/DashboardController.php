@@ -107,7 +107,30 @@ class DashboardController extends Controller
 
         $recentActivity = $this->recentActivity();
 
-        return view('dashboard', compact('totalPesanan', 'totalPesananBln', 'totalPesananPct', 'totalPesananBlnPct', 'totalBelumCair', 'totalLewatTempo', 'bibitWarnings', 'finansial', 'recentActivity'));
+        // ── Target Omzet Bulan Ini ──
+        $targetOmzet = (float) (DB::table('pengaturan')->where('kunci', 'omzet_target_bulanan')->value('nilai') ?: 60000000);
+        $omzetTargetBasis = (float) DB::table('penjualan_headers')
+            ->where('status_pesanan', '!=', 'Batal')->where('channel', '!=', 'Gratis')
+            ->whereBetween('tgl_pesanan', [$awalBln, $akhirBln])->sum('gmv_kotor');
+        $tglBln     = (int) now()->day;
+        $jmlHariBln = (int) now()->daysInMonth;
+        $hariSisa   = max(1, $jmlHariBln - $tglBln);
+        $target = [
+            'target'      => $targetOmzet,
+            'aktual'      => $omzetTargetBasis,
+            'pct'         => $targetOmzet > 0 ? min(100, $omzetTargetBasis / $targetOmzet * 100) : 0,
+            'pct_raw'     => $targetOmzet > 0 ? $omzetTargetBasis / $targetOmzet * 100 : 0,
+            'ideal'       => $targetOmzet * ($tglBln / $jmlHariBln),      // seharusnya sudah segini
+            'kurang'      => max(0, $targetOmzet - $omzetTargetBasis),
+            'per_hari'    => max(0, $targetOmzet - $omzetTargetBasis) / $hariSisa,
+            'proyeksi'    => $tglBln > 0 ? $omzetTargetBasis / $tglBln * $jmlHariBln : 0,
+            'hari'        => $tglBln,
+            'hari_total'  => $jmlHariBln,
+            'hari_sisa'   => $hariSisa,
+        ];
+        $target['on_track'] = $target['aktual'] >= $target['ideal'];
+
+        return view('dashboard', compact('totalPesanan', 'totalPesananBln', 'totalPesananPct', 'totalPesananBlnPct', 'totalBelumCair', 'totalLewatTempo', 'bibitWarnings', 'finansial', 'recentActivity', 'target'));
     }
 
     /** Log aktivitas terbaru sistem (gabungan dari beberapa tabel). */
@@ -290,6 +313,19 @@ class DashboardController extends Controller
             'prev_label' => $prevLabel,
             'kategori' => $kategori,
         ]);
+    }
+
+    /** Simpan/ubah target omzet bulanan. */
+    public function simpanTarget(Request $request)
+    {
+        $request->validate(['omzet_target' => 'required|numeric|min:0']);
+        $val = (float) $request->omzet_target;
+        if (DB::table('pengaturan')->where('kunci', 'omzet_target_bulanan')->exists()) {
+            DB::table('pengaturan')->where('kunci', 'omzet_target_bulanan')->update(['nilai' => $val, 'updated_at' => now()]);
+        } else {
+            DB::table('pengaturan')->insert(['kunci' => 'omzet_target_bulanan', 'nilai' => $val, 'created_at' => now(), 'updated_at' => now()]);
+        }
+        return back()->with('success', 'Target omzet bulanan diperbarui: Rp ' . number_format($val, 0, ',', '.'));
     }
 
     public function grafikData(Request $request)

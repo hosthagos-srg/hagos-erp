@@ -20,6 +20,7 @@ Route::middleware('auth')->group(function () {
 
 Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 Route::get('/dashboard/grafik', [DashboardController::class, 'grafikData'])->name('dashboard.grafik');
+Route::post('/dashboard/target', [DashboardController::class, 'simpanTarget'])->name('dashboard.target');
 Route::get('/dashboard/stats', [DashboardController::class, 'stats'])->name('dashboard.stats');
 Route::get('/dashboard/expense-breakdown', [DashboardController::class, 'expenseBreakdown'])->name('dashboard.expense_breakdown');
 
