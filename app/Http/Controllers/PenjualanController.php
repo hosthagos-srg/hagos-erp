@@ -302,7 +302,9 @@ class PenjualanController extends Controller
         $isMpGuard = $hpp->klasifikasiChannel($request->channel)['is_marketplace'];
         $statusGuard = $request->status_pembayaran ?: 'Lunas';
         if (!$isMpGuard && $statusGuard === 'Lunas' && !$request->akun_pembayaran) {
-            return back()->withInput()->withErrors(['akun_pembayaran' => 'Akun penerima uang WAJIB diisi untuk pesanan Lunas — supaya uang masuk tercatat.']);
+            return back()->withInput()
+                ->withErrors(['akun_pembayaran' => 'Akun penerima uang wajib diisi untuk pesanan Lunas.'])
+                ->with('error', '⚠️ Gagal simpan: Akun Pembayaran WAJIB diisi untuk pesanan Lunas — supaya uang masuk tercatat. Pesanan belum dibuat.');
         }
 
         $autoRacik = false;

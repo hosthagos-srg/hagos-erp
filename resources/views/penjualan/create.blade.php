@@ -32,6 +32,14 @@
                     <span class="block sm:inline">{{ session('error') }}</span>
                 </div>
             @endif
+            @if($errors->any())
+                <div class="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded" role="alert">
+                    <strong class="font-bold">Periksa lagi:</strong>
+                    <ul class="list-disc list-inside text-sm mt-1">
+                        @foreach($errors->all() as $err)<li>{{ $err }}</li>@endforeach
+                    </ul>
+                </div>
+            @endif
 
             <form action="{{ route('penjualan.store') }}" method="POST" class="space-y-6" onsubmit="return lockSubmit(this)">
                 @csrf
