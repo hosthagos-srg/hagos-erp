@@ -205,6 +205,7 @@
                     <div class="text-xs uppercase tracking-wide text-gray-400 font-semibold mb-1">Lapis 1 — Modal Produk (per pcs)</div>
                     <table class="w-full text-sm mb-3">
                         @foreach($bd['lapis1'] as $row)
+                        @continue($row['total'] == 0)
                         <tr class="border-b border-gray-50">
                             <td class="py-1 text-gray-600">
                                 {{ $row['label'] }}
@@ -237,12 +238,13 @@
                     <table class="w-full text-sm mb-3">
                         @if($bd['is_shipped'])
                             <tr class="border-b border-gray-50"><td class="py-1 text-gray-600">Gaji packing ({{ $d->qty }} pcs × Rp {{ number_format($bd['lapis2']['gaji'],0,',','.') }})</td><td class="py-1 text-right text-gray-800">Rp {{ number_format($bd['lapis2']['gaji']*$d->qty, 0, ',', '.') }}</td></tr>
-                            <tr class="border-b border-gray-50"><td class="py-1 text-gray-600">Shrink ({{ $d->qty }} pcs × Rp {{ number_format($bd['lapis2']['shrink'],0,',','.') }})</td><td class="py-1 text-right text-gray-800">Rp {{ number_format($bd['lapis2']['shrink']*$d->qty, 0, ',', '.') }}</td></tr>
-                            <tr><td class="py-1 text-gray-600">Bahan packing (per pesanan)</td><td class="py-1 text-right text-gray-800">Rp {{ number_format($bd['lapis2']['bahan_packing'], 0, ',', '.') }}</td></tr>
+                            @if($bd['lapis2']['shrink'] > 0)<tr class="border-b border-gray-50"><td class="py-1 text-gray-600">Shrink ({{ $d->qty }} pcs × Rp {{ number_format($bd['lapis2']['shrink'],0,',','.') }})</td><td class="py-1 text-right text-gray-800">Rp {{ number_format($bd['lapis2']['shrink']*$d->qty, 0, ',', '.') }}</td></tr>@endif
+                            @if($bd['lapis2']['bahan_packing'] > 0)<tr><td class="py-1 text-gray-600">Bahan packing (per pesanan)</td><td class="py-1 text-right text-gray-800">Rp {{ number_format($bd['lapis2']['bahan_packing'], 0, ',', '.') }}</td></tr>@endif
                         @else
                             <tr><td class="py-1 text-gray-400 italic">Tidak ada — pesanan diambil langsung (offline/reseller/refill)</td><td></td></tr>
                         @endif
                     </table>
+                    <p class="text-[11px] text-gray-400 mb-3 italic">Catatan: bahan packing (bubble/lakban/resi), shrink, sticker & kartu ucapan tidak lagi di HPP — dicatat sebagai <b>Pengeluaran</b> nyata (kategori Bahan Packing) agar tak dobel.</p>
 
                     <div class="flex justify-between items-center bg-red-50 rounded px-3 py-2 mt-2">
                         <span class="font-bold text-gray-900">Total HPP ({{ $d->qty }} pcs)</span>

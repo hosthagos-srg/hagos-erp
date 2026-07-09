@@ -180,8 +180,10 @@ class HppService
         $hargaBotol = $this->k('KMP-BTL' . $ukuran, 0);
         $hargaAbsC  = $this->k('KMP-ABSC', 51.5);
         $hargaBox   = $this->k('KMP-BOX', 2550);
-        $hargaStk   = $this->k('KMP-STKU', 141);
-        $hargaKartu = $this->k('KMP-KARTU', 70);
+        // Konsumabel (sticker & kartu) DIKELUARKAN dari HPP — kini dicatat sbg Pengeluaran nyata
+        // (kategori "Bahan Packing/Konsumabel"). Set 0 di sini biar tak dobel. Harga master tetap utuh.
+        $hargaStk   = 0; // dulu KMP-STKU (141)
+        $hargaKartu = 0; // dulu KMP-KARTU (70)
 
         // === Lapis 1 (per unit) ===
         // Bibit bisa >1 (mix): tiap bibit jadi 1 baris tersendiri, biayanya dijumlahkan.
@@ -246,8 +248,10 @@ class HppService
         $l2 = ['gaji' => 0, 'shrink' => 0, 'bahan_packing' => 0, 'total' => 0];
         if ($shipped) {
             $gaji = $this->k('KMP-GAJI', 3000);
-            $shrink = $this->k('KMP-SHRINK', 168);
-            $bahan = $this->k('KMP-PACK', 1641);
+            // Shrink & bahan packing (bubble+lakban+resi) DIKELUARKAN dari HPP — kini Pengeluaran nyata.
+            // Gaji packing (tenaga kerja) TETAP di HPP. Harga master tetap utuh.
+            $shrink = 0; // dulu KMP-SHRINK (168)
+            $bahan = 0;  // dulu KMP-PACK (1641)
             $l2 = [
                 'gaji' => $gaji, 'shrink' => $shrink, 'bahan_packing' => $bahan,
                 'total' => ($qty * ($gaji + $shrink)) + $bahan,
