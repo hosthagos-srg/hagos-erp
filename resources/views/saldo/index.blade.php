@@ -16,12 +16,12 @@
                 <h1 class="text-3xl font-bold text-gray-900">Saldo & Cashflow</h1>
                 <p class="text-gray-600 mt-1">Saldo tiap akun = saldo awal + masuk − keluar.</p>
             </div>
-            <div class="space-x-2">
-                <button type="button" onclick="document.getElementById('withdrawalModal').classList.remove('hidden')" class="inline-flex items-center px-4 py-2 bg-blue-600 rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700">🏦 Tarik Saldo (WD)</button>
-                <button type="button" onclick="document.getElementById('transferModal').classList.remove('hidden')" class="inline-flex items-center px-4 py-2 bg-emerald-600 rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-emerald-700">🔄 Transfer Antar Akun</button>
-                <button type="button" onclick="document.getElementById('opnameKasModal').classList.remove('hidden')" class="inline-flex items-center px-4 py-2 bg-amber-600 rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-amber-700">🧮 Opname Saldo</button>
-                <button type="button" onclick="document.getElementById('patunganModal').classList.remove('hidden')" class="inline-flex items-center px-4 py-2 bg-teal-600 rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-teal-700">🤝 Patungan Masuk</button>
-                <a href="{{ route('dashboard') }}" class="inline-flex items-center px-4 py-2 bg-gray-200 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest hover:bg-gray-300">&larr; Dashboard</a>
+            <div class="flex flex-wrap items-center justify-end gap-2">
+                <button type="button" title="Tarik Saldo (Withdrawal)" onclick="document.getElementById('withdrawalModal').classList.remove('hidden')" class="inline-flex items-center px-3 py-2 bg-blue-600 rounded-md font-semibold text-xs text-white uppercase tracking-wide hover:bg-blue-700 whitespace-nowrap">🏦 Tarik&nbsp;(WD)</button>
+                <button type="button" title="Transfer Antar Akun" onclick="document.getElementById('transferModal').classList.remove('hidden')" class="inline-flex items-center px-3 py-2 bg-emerald-600 rounded-md font-semibold text-xs text-white uppercase tracking-wide hover:bg-emerald-700 whitespace-nowrap">🔄 Transfer</button>
+                <button type="button" title="Opname Saldo Kas" onclick="document.getElementById('opnameKasModal').classList.remove('hidden')" class="inline-flex items-center px-3 py-2 bg-amber-600 rounded-md font-semibold text-xs text-white uppercase tracking-wide hover:bg-amber-700 whitespace-nowrap">🧮 Opname</button>
+                <button type="button" title="Patungan Biaya Bersama Masuk" onclick="document.getElementById('patunganModal').classList.remove('hidden')" class="inline-flex items-center px-3 py-2 bg-teal-600 rounded-md font-semibold text-xs text-white uppercase tracking-wide hover:bg-teal-700 whitespace-nowrap">🤝 Patungan</button>
+                <a href="{{ route('dashboard') }}" class="inline-flex items-center px-3 py-2 bg-gray-200 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-wide hover:bg-gray-300 whitespace-nowrap">&larr; Dashboard</a>
             </div>
         </div>
 
