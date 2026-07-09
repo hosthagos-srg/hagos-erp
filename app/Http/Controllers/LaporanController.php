@@ -359,6 +359,7 @@ class LaporanController extends Controller
         $labaKotor = $s['labaKotor']; $marginKotor = $s['marginKotor'];
         $totalPengeluaran = $s['totalPengeluaran']; $totalCicilan = $s['totalCicilan'];
         $totalSampel = $s['totalSampel']; $totalSusut = $s['totalSusut']; $totalPenerimaan = $s['totalPenerimaan'];
+        $totalPatungan = $s['totalPatungan'];
         $totalBiayaOps = $s['totalBiayaOps']; $labaBersih = $s['labaBersih']; $marginBersih = $s['marginBersih'];
 
         // Breakdown omset per channel
@@ -422,7 +423,7 @@ class LaporanController extends Controller
             'totalHpp', 'labaKotor', 'marginKotor',
             'pengeluaran', 'totalPengeluaran',
             'cicilanDibayar', 'totalCicilan', 'totalSampel', 'totalSusut', 'totalPenerimaan',
-            'totalBiayaOps', 'labaBersih', 'marginBersih',
+            'totalPatungan', 'totalBiayaOps', 'labaBersih', 'marginBersih',
             'statPesanan',
         ));
     }
