@@ -182,12 +182,22 @@
                     </div>
                     @endif
 
-                    @if($totalBiayaOps == 0)
+                    @if(($totalPatungan ?? 0) > 0)
+                    <div class="px-6 py-3 flex justify-between items-center bg-emerald-50/40">
+                        <div>
+                            <p class="text-sm text-gray-700">(−) Patungan biaya bersama (mis. 420F)</p>
+                            <p class="text-xs text-gray-400">Kontribusi mitra utk sewa/listrik/internet — mengurangi biaya, bukan pendapatan</p>
+                        </div>
+                        <p class="font-semibold text-emerald-700">− Rp {{ number_format($totalPatungan, 0, ',', '.') }}</p>
+                    </div>
+                    @endif
+
+                    @if($totalBiayaOps == 0 && ($totalPatungan ?? 0) == 0)
                     <div class="px-6 py-3 text-sm text-gray-400">— Belum ada data biaya operasional</div>
                     @endif
 
                     <div class="px-6 py-3 flex justify-between items-center bg-red-50">
-                        <p class="font-bold text-red-800">Total Biaya Operasional</p>
+                        <p class="font-bold text-red-800">Total Biaya Operasional (bersih)</p>
                         <p class="font-bold text-red-800 text-lg">Rp {{ number_format($totalBiayaOps, 0, ',', '.') }}</p>
                     </div>
                 </div>

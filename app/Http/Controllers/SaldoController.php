@@ -213,6 +213,29 @@ class SaldoController extends Controller
         return redirect()->route('saldo.index')->with('success', 'Pengeluaran ' . $request->kategori . ' Rp ' . number_format((float) $request->jumlah, 0, ',', '.') . ' tercatat.');
     }
 
+    /** Patungan biaya bersama (mis. 420F). Kas MASUK, BUKAN pendapatan — jadi pengurang biaya ops di P&L. */
+    public function patungan(Request $request)
+    {
+        $request->validate([
+            'akun'    => 'required|string',
+            'jumlah'  => 'required|numeric|min:1',
+            'dari'    => 'required|string|max:100',
+            'untuk'   => 'nullable|string|max:100',
+            'tanggal' => 'nullable|date',
+            'oleh'    => 'nullable|string',
+        ]);
+
+        MutasiKas::catat(
+            $request->akun, 'masuk', (float) $request->jumlah, 'patungan',
+            null,
+            'Patungan ' . $request->dari . ($request->untuk ? ' · ' . $request->untuk : ''),
+            $request->oleh,
+            $request->tanggal ?? now()->toDateString()
+        );
+
+        return redirect()->route('saldo.index')->with('success', 'Patungan dari ' . $request->dari . ' Rp ' . number_format((float) $request->jumlah, 0, ',', '.') . ' tercatat (mengurangi biaya operasional, bukan pendapatan).');
+    }
+
     /** Transfer antar akun + biaya transfer opsional (potong dari pengirim/penerima). */
     public function transfer(Request $request)
     {

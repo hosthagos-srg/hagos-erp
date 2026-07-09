@@ -20,6 +20,7 @@
                 <button type="button" onclick="document.getElementById('withdrawalModal').classList.remove('hidden')" class="inline-flex items-center px-4 py-2 bg-blue-600 rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700">🏦 Tarik Saldo (WD)</button>
                 <button type="button" onclick="document.getElementById('transferModal').classList.remove('hidden')" class="inline-flex items-center px-4 py-2 bg-emerald-600 rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-emerald-700">🔄 Transfer Antar Akun</button>
                 <button type="button" onclick="document.getElementById('opnameKasModal').classList.remove('hidden')" class="inline-flex items-center px-4 py-2 bg-amber-600 rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-amber-700">🧮 Opname Saldo</button>
+                <button type="button" onclick="document.getElementById('patunganModal').classList.remove('hidden')" class="inline-flex items-center px-4 py-2 bg-teal-600 rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-teal-700">🤝 Patungan Masuk</button>
                 <a href="{{ route('dashboard') }}" class="inline-flex items-center px-4 py-2 bg-gray-200 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest hover:bg-gray-300">&larr; Dashboard</a>
             </div>
         </div>
@@ -237,6 +238,54 @@
         <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
           <button type="submit" class="w-full inline-flex justify-center rounded-md px-4 py-2 bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 sm:ml-3 sm:w-auto">Setel Saldo</button>
           <button type="button" onclick="document.getElementById('opnameKasModal').classList.add('hidden')" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 px-4 py-2 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Patungan Masuk (mis. 420F) -->
+<div id="patunganModal" class="fixed z-50 inset-0 overflow-y-auto hidden" role="dialog" aria-modal="true">
+  <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+    <div class="fixed inset-0 bg-gray-500 bg-opacity-40" onclick="document.getElementById('patunganModal').classList.add('hidden')"></div>
+    <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+    <div class="relative z-10 inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl sm:my-8 sm:align-middle sm:max-w-md sm:w-full">
+      <form method="POST" action="{{ route('saldo.patungan') }}">
+        @csrf
+        <div class="bg-white px-4 pt-5 pb-4 sm:p-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-1">🤝 Patungan Biaya Bersama Masuk</h3>
+          <p class="text-sm text-gray-500 mb-4">Kontribusi mitra (mis. 420F) untuk sewa/listrik/internet. Kas masuk, tapi <b>bukan pendapatan</b> — otomatis <b>mengurangi biaya operasional</b> di P&amp;L.</p>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Masuk ke Akun</label>
+              <select name="akun" required class="mt-1 block w-full border-gray-300 rounded-md border px-3 py-2 text-sm bg-white">
+                <option value="">-- Pilih Akun --</option>
+                @foreach($rows as $r)<option value="{{ $r->nama_akun }}">{{ $r->nama_akun }}</option>@endforeach
+              </select>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Dari</label>
+                <input type="text" name="dari" value="420F" required class="mt-1 block w-full border-gray-300 rounded-md border px-3 py-2 text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Jumlah (Rp)</label>
+                <input type="number" name="jumlah" min="1" step="1000" required class="mt-1 block w-full border-gray-300 rounded-md border px-3 py-2 text-sm" placeholder="cth: 500000">
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Untuk <span class="text-gray-400">(opsional)</span></label>
+              <input type="text" name="untuk" class="mt-1 block w-full border-gray-300 rounded-md border px-3 py-2 text-sm" placeholder="cth: sewa/listrik/internet">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Tanggal</label>
+              <input type="date" name="tanggal" value="{{ date('Y-m-d') }}" class="mt-1 block w-full border-gray-300 rounded-md border px-3 py-2 text-sm">
+            </div>
+          </div>
+        </div>
+        <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+          <button type="submit" class="w-full inline-flex justify-center rounded-md px-4 py-2 bg-teal-600 text-white text-sm font-medium hover:bg-teal-700 sm:ml-3 sm:w-auto">Catat Patungan</button>
+          <button type="button" onclick="document.getElementById('patunganModal').classList.add('hidden')" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 px-4 py-2 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto">Batal</button>
         </div>
       </form>
     </div>

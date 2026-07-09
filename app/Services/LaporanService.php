@@ -93,18 +93,23 @@ class LaporanService
             ->selectRaw('SUM(ABS(k.selisih) * m.harga_satuan) as t')->value('t');
         $totalSusut = round((float) $susutBibit + (float) $susutKomponen, 2);
 
-        // Pendapatan lain-lain (jual tester, patungan, dll) — kategori 'penerimaan'
+        // Pendapatan lain-lain (jual tester, dll) — kategori 'penerimaan'
         $totalPenerimaan = (float) MutasiKas::where('tipe', 'masuk')->where('kategori', 'penerimaan')
             ->whereBetween('tanggal', [$awal, $akhir])->sum('jumlah');
 
-        $totalBiayaOps = $totalPengeluaran + $totalCicilan + $totalSampel + $totalSusut;
+        // Patungan biaya bersama (mis. 420F untuk sewa/listrik/internet) — BUKAN pendapatan,
+        // tapi PENGURANG biaya operasional. Bulan mereka libur → 0 → HAGOS tanggung penuh (benar).
+        $totalPatungan = (float) MutasiKas::where('tipe', 'masuk')->where('kategori', 'patungan')
+            ->whereBetween('tanggal', [$awal, $akhir])->sum('jumlah');
+
+        $totalBiayaOps = $totalPengeluaran + $totalCicilan + $totalSampel + $totalSusut - $totalPatungan;
         $labaBersih    = $labaKotor + $totalPenerimaan - $totalBiayaOps;
         $marginBersih  = $totalOmset > 0 ? ($labaBersih / $totalOmset) * 100 : 0;
 
         return compact(
             'omsetMP', 'omsetNonMP', 'totalOmset', 'totalPesanan',
             'totalHpp', 'labaKotor', 'marginKotor', 'totalPenerimaan',
-            'totalPengeluaran', 'totalCicilan', 'totalSampel', 'totalSusut', 'totalBiayaOps',
+            'totalPengeluaran', 'totalCicilan', 'totalSampel', 'totalSusut', 'totalPatungan', 'totalBiayaOps',
             'labaBersih', 'marginBersih'
         );
     }
