@@ -59,9 +59,15 @@ class LaporanService
         // Gaji dibebankan ke BULAN BIAYA (accrual), bukan tanggal bayar — biar laba per bulan
         // akurat walau transfer di bulan berikutnya. Kas tetap keluar di tanggal_bayar (mutasi
         // 'GAJI-%' dikecualikan di sini agar tak dobel/salah bulan).
+        // CATATAN NULL: di MySQL `NULL NOT LIKE 'x'` = NULL (bukan TRUE), jadi filter polos
+        // `ref_id NOT LIKE 'GAJI-%'` diam-diam MEMBUANG semua pengeluaran ber-ref_id NULL
+        // (yaitu mayoritas biaya operasional biasa) → laba jadi kelebihan. Harus eksplisit
+        // memasukkan baris ref_id NULL sebagai non-gaji.
         $pengeluaranNonGaji = (float) MutasiKas::where('tipe', 'keluar')
             ->where('kategori', 'pengeluaran')
-            ->where('ref_id', 'not like', 'GAJI-%')
+            ->where(function ($q) {
+                $q->whereNull('ref_id')->orWhere('ref_id', 'not like', 'GAJI-%');
+            })
             ->whereBetween('tanggal', [$awal, $akhir])
             ->sum('jumlah');
         $totalGaji = (float) DB::table('gaji')
