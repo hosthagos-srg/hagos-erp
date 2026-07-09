@@ -274,8 +274,9 @@ class PenjualanController extends Controller
         // Untuk aksi pra-racik (pecah bundle / mix custom) — hanya relevan saat pesanan masih 'Menunggu'.
         $allProduks = MasterProduk::orderBy('sku_id')->get(['sku_id', 'nama_produk', 'ukuran_ml']);
         $allBibits = \App\Models\MasterBibit::orderBy('nama_bibit')->get(['bibit_id', 'nama_bibit']);
+        $akuns = \App\Models\MasterAkunKas::whereNotIn('tipe', ['Saldo MP', 'Piutang'])->orderBy('akun_id')->pluck('nama_akun');
 
-        return view('penjualan.show', compact('header', 'details', 'breakdowns', 'cls', 'asliMap', 'labaKotor', 'allProduks', 'allBibits'));
+        return view('penjualan.show', compact('header', 'details', 'breakdowns', 'cls', 'asliMap', 'labaKotor', 'allProduks', 'allBibits', 'akuns'));
     }
 
     public function store(Request $request, \App\Services\HppService $hpp, \App\Services\RacikService $racikService)
@@ -295,6 +296,14 @@ class PenjualanController extends Controller
             'status_pembayaran' => 'nullable|string',
             'akun_pembayaran' => 'nullable|string',
         ]);
+
+        // GUARD: pesanan non-marketplace yang LUNAS wajib punya akun penerima uang,
+        // biar uang masuk selalu tercatat (cegah kasus "uang hilang" — pesanan jadi tapi kas kosong).
+        $isMpGuard = $hpp->klasifikasiChannel($request->channel)['is_marketplace'];
+        $statusGuard = $request->status_pembayaran ?: 'Lunas';
+        if (!$isMpGuard && $statusGuard === 'Lunas' && !$request->akun_pembayaran) {
+            return back()->withInput()->withErrors(['akun_pembayaran' => 'Akun penerima uang WAJIB diisi untuk pesanan Lunas — supaya uang masuk tercatat.']);
+        }
 
         $autoRacik = false;
         try {
@@ -455,6 +464,26 @@ class PenjualanController extends Controller
                 \App\Models\MutasiKas::catat($akun, 'masuk', $net, 'penjualan', $internal_id, 'Pelunasan piutang ' . $header->channel . ($header->nama_pembeli ? ' · ' . $header->nama_pembeli : ''));
             }
             return redirect()->back()->with('success', 'Pembayaran diterima. Pesanan jadi Cair, uang masuk ke ' . $akun . '.');
+        }
+
+        // Perbaiki AKUN MASUK yang terlewat (pesanan Lunas non-marketplace tapi akun/uang masuk kosong).
+        if ($action === 'set_akun_masuk') {
+            $akun = $request->input('akun');
+            if (!$akun) {
+                return redirect()->back()->with('error', 'Pilih akun penerima uang.');
+            }
+            $header->akun_masuk = $akun;
+            $header->save();
+
+            $sudahMasuk = \App\Models\MutasiKas::where('ref_id', $internal_id)->where('kategori', 'penjualan')->exists();
+            if (!$sudahMasuk) {
+                $net = (float) $header->gmv_kotor - (float) ($header->diskon_manual ?? 0);
+                if ($net > 0) {
+                    \App\Models\MutasiKas::catat($akun, 'masuk', $net, 'penjualan', $internal_id, 'Penjualan ' . $header->channel . ($header->nama_pembeli ? ' · ' . $header->nama_pembeli : '') . ' (akun disusulkan)');
+                    return redirect()->back()->with('success', 'Akun masuk diisi & uang Rp ' . number_format($net, 0, ',', '.') . ' dicatat MASUK ke ' . $akun . '.');
+                }
+            }
+            return redirect()->back()->with('success', 'Akun masuk diperbarui ke ' . $akun . '. (Uang sudah tercatat sebelumnya — tidak dibuat lagi, aman dari dobel.)');
         }
 
         if ($action === 'batal') {

@@ -362,7 +362,29 @@
                 </div>
                 <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                     <dt class="text-sm font-medium text-gray-500">Masuk ke Akun</dt>
-                    <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{ $header->akun_masuk ?? '-' }}</dd>
+                    <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                        @php
+                            $akunKosong = empty($header->akun_masuk);
+                            $nonMp = !str_starts_with((string) $header->channel, 'Marketplace') && $header->channel !== 'Gratis';
+                            $bisaSetAkun = $akunKosong && $nonMp && $header->status_pesanan !== 'Batal';
+                        @endphp
+                        @if($bisaSetAkun)
+                            <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                <p class="text-xs text-amber-800 font-semibold mb-2">⚠️ Akun penerima uang belum diisi — uang masuk belum tercatat. Pilih akunnya:</p>
+                                <form method="POST" action="{{ route('penjualan.update_status', $header->internal_id) }}" class="flex flex-wrap gap-2 items-center">
+                                    @csrf
+                                    <input type="hidden" name="action" value="set_akun_masuk">
+                                    <select name="akun" required class="border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white">
+                                        <option value="">-- Pilih akun --</option>
+                                        @foreach(($akuns ?? []) as $ak)<option value="{{ $ak }}">{{ $ak }}</option>@endforeach
+                                    </select>
+                                    <button type="submit" class="bg-emerald-600 text-white px-3 py-1.5 rounded-md text-sm font-semibold hover:bg-emerald-700" onclick="return confirm('Catat uang masuk ke akun ini?')">Simpan &amp; Catat Uang Masuk</button>
+                                </form>
+                            </div>
+                        @else
+                            {{ $header->akun_masuk ?? '-' }}
+                        @endif
+                    </dd>
                 </div>
             </dl>
         </div>
