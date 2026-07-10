@@ -208,7 +208,9 @@ class ProduksiInternalController extends Controller
                 if ((float) $btl3->stok < $totalQty) {
                     $warnings[] = "Stok botol tester (" . ($btl3->nama_komponen ?? 'KMP-BTL3') . ") kurang: sisa {$btl3->stok}, butuh {$totalQty} — stok jadi minus.";
                 }
-                if ((float) $stkt->stok < $totalQty) {
+                // Stiker tester = konsumabel (track_stok=Tidak), sama seperti Stiker Utama:
+                // tak dilacak, tak dipotong, tak boleh jadi minus. Warning HANYA bila memang dilacak.
+                if ($stkt->track_stok === 'Ya' && (float) $stkt->stok < $totalQty) {
                     $warnings[] = "Stok stiker tester (" . ($stkt->nama_komponen ?? 'KMP-STKT') . ") kurang: sisa {$stkt->stok}, butuh {$totalQty} — stok jadi minus.";
                 }
 
@@ -219,8 +221,11 @@ class ProduksiInternalController extends Controller
                 $btl3->stok -= $totalQty;
                 $btl3->save();
 
-                $stkt->stok -= $totalQty;
-                $stkt->save();
+                // Potong stok stiker tester HANYA bila dilacak (biaya tetap masuk HPP di bawah).
+                if ($stkt->track_stok === 'Ya') {
+                    $stkt->stok -= $totalQty;
+                    $stkt->save();
+                }
 
                 // Moving Average HPP untuk Botol Tester Jadi.
                 // Pakai stok efektif (tidak negatif) agar rata-rata tidak rusak bila stok minus.
