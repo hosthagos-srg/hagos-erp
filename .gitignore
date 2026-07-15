@@ -33,3 +33,6 @@ HAGOS_Spesifikasi_*.docx
 *.docx
 docx_content.txt
 /.claude/settings.local.json
+
+# Konteks lokal untuk Claude — berisi angka keuangan internal, JANGAN di-commit
+CLAUDE.local.md
