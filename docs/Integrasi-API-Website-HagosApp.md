@@ -6,6 +6,54 @@ Dokumen ini untuk **developer Website & Hagos App**. Tujuannya: menyepakati skem
 
 ---
 
+## 0. ⭐ JAWABAN DEVELOPER & KONTRAK FINAL (dikonfirmasi Ekal 2026-07-17)
+
+> Ini keputusan final hasil tanya-jawab dengan developer website. **Menggantikan usulan "Push" di bawah** — modelnya jadi **PULL**. Bagian 1–9 di bawah tetap sebagai referensi desain awal.
+
+**Arsitektur: PULL — ERP menarik dari Website.** Bukan website yang push ke ERP, tapi **ERP memanggil API website `hagosperfume.com`** untuk menarik pesanan.
+
+| # | Pertanyaan | Jawaban final |
+|---|---|---|
+| 1 | Cara koneksi | **PULL** — ERP menarik data dari API website hagosperfume.com |
+| 2 | SKU | **ERP sediakan tabel pemetaan** (`website_sku_maps`: `website_sku` → `sku_aroma`; ukuran dari `kemasan`; bentuk REG) |
+| 3 | Harga | **Website & ERP dijamin sama** |
+| 4 | Pembayaran | Uang masuk **kas "Midtrans"** |
+| 5 | Trigger | Hanya tarik pesanan yang **sudah dibayar** (`payment_status: "paid"`) |
+| 6 | Resi | Diinput di **website**; saat resi masuk status jadi **`on_delivery`** (ERP: sudah dikirim + resi) |
+| 7 | Pembatalan | Manual — pelanggan ajukan komplain → **admin cek manual** (tak ada auto-cancel) |
+| 8 | Payload | Contoh JSON lengkap dari website (lihat di bawah) |
+| 9 | Volume & auth | **< 50 pesanan/hari**; auth website = **Bearer token JWT** (ERP jadi klien) |
+| 10 | Sinkron balik | **Tidak perlu** (ERP tak kirim stok/harga balik ke website) |
+
+### Pemetaan payload website → ERP (kontrak)
+| Field ERP | Ambil dari payload website |
+|---|---|
+| `channel` | `"Website"` |
+| `external_order_id` (anti-dobel) | `id` (UUID order website) |
+| `tgl_pesanan` | `created_at` |
+| `status_pembayaran` | `Lunas` (karena `payment_status="paid"`) |
+| `akun_masuk` | **Midtrans** |
+| `nama_pembeli` | `shipping_recipient_name` / `user.name` |
+| `gmv_kotor` | `total_price` (subtotal produk; **bukan** `final_total`) |
+| `diskon_manual` | `discount_amount` |
+| item → `sku_id` ERP | map `items[].product.sku` (mis. "HGS053") via `website_sku_maps` → `sku_aroma`, gabung `kemasan` ("30 ML"→30) → `HGS053-30-REG` |
+| item `qty` | `items[].quantity` |
+| resi & kurir | `tracking_number`, `courier`, `courier_service` (saat `status="on_delivery"`) |
+
+**Catatan biaya:** `shipping_cost`, `handling_fee`, `insurance_fee` = titipan ke kurir/gateway → **BUKAN pendapatan ERP**, tak masuk gmv. Pesanan masuk berstatus **Menunggu** → antre Gudang Racik (HPP/stok saat diracik, alur normal).
+
+### ❓ Masih perlu dari developer sebelum bisa konek
+1. **URL endpoint** pull-nya (mis. `GET https://hagosperfume.com/api/orders?payment_status=paid&since=...`) + apakah bisa filter "sejak timestamp/paged".
+2. **Cara ERP dapat JWT**: endpoint login (kirim kredensial → token) atau token statis jangka panjang untuk ERP? (kredensial/token diisi Ekal, bukan di-commit).
+3. **`tester_type` (mis. "Random")** artinya apa untuk ERP — bonus tester acak yang ikut produk, atau metadata saja?
+
+### Contoh payload (dari developer)
+```json
+(lihat Bagian 8 di bawah untuk contoh JSON penuh)
+```
+
+---
+
 ## 1. Tujuan
 
 Saat ada pesanan baru (dan/atau dibayar) di Website atau Hagos App, data pesanan otomatis terkirim ke ERP dan langsung menjadi pesanan yang siap diproses (racik → kirim), lengkap dengan perhitungan HPP, stok, dan kas — memakai mesin yang sudah berjalan di ERP.
@@ -223,3 +271,49 @@ Agar bisa lanjut, tolong bantu jawab hal-hal berikut:
 4. Uji coba bersama (sandbox) sebelum go-live.
 
 Silakan diskusikan dan beri masukan. Terima kasih.
+
+---
+
+## Appendix A — Contoh Payload Order Website (kontrak nyata, 2026-07-17)
+
+Struktur objek order dari `hagosperfume.com` yang akan ditarik ERP:
+
+```json
+{
+  "id": "177b15cf-eb52-4dc3-b9e1-3fbdf06c950a",
+  "shipping_recipient_name": "Sofa Ramadhan",
+  "shipping_city": "Cilegon",
+  "shipping_province": "Banten",
+  "shipping_cost": "9000",
+  "handling_fee": "1500.00",
+  "insurance_fee": "0.00",
+  "status": "on_delivery",
+  "payment_status": "paid",
+  "payment_type": "va",
+  "bank": "bni",
+  "tracking_number": "ABCDE123456",
+  "courier": "sicepat",
+  "courier_service": "reg",
+  "va_number": "9889387523052497",
+  "midtrans_order_id": "ORD-20260704-57SMBW",
+  "biteship_order_id": "e5d22726-fe7a-4ca4-8901-95dbfb807178",
+  "total_price": "75000.00",
+  "discount_amount": "0.00",
+  "final_total": "85500.00",
+  "created_at": "2026-07-04T01:18:19.000000Z",
+  "items": [
+    {
+      "product_name": "Scanleathery",
+      "tester_type": "Random",
+      "kemasan": "30 ML",
+      "quantity": 1,
+      "price": "75000.00",
+      "subtotal": "75000.00",
+      "product": { "sku": "HGS053", "name": "Scanleathery" }
+    }
+  ],
+  "user": { "name": "sofa", "email": "sofa@gmail.com" }
+}
+```
+
+**Field kunci ERP:** `id` (anti-dobel) · `payment_status=paid` (syarat tarik) · `total_price` (gmv) · `discount_amount` · `items[].product.sku` + `kemasan` (→ SKU ERP via website_sku_maps) · `tracking_number`/`courier` · `created_at` (tgl_pesanan). Titipan (shipping/handling/insurance) bukan pendapatan.
