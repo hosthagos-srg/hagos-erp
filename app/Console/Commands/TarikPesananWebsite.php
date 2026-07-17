@@ -22,10 +22,9 @@ class TarikPesananWebsite extends Command
         catch (\Throwable $e) { $this->error($e->getMessage()); return self::FAILURE; }
 
         $this->info('Mengambil daftar pesanan...');
-        try { $raw = $svc->getOrders(); }
+        try { $list = $svc->getAllOrders(); }
         catch (\Throwable $e) { $this->error($e->getMessage()); return self::FAILURE; }
 
-        $list = $svc->extractOrderList($raw);
         $this->line('Total pesanan diterima: ' . count($list));
 
         $dumpedDetail = false;

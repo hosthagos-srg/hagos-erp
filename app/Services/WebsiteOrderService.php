@@ -6,7 +6,8 @@ use Illuminate\Support\Facades\Http;
 
 /**
  * Klien untuk MENARIK pesanan dari API website e-commerce Hagos (hagosperfume.com).
- * Alur: login (dapat JWT) -> GET /orders (Bearer).
+ * Alur: login (dapat JWT) -> GET /admin/orders (Bearer). Endpoint admin = SEMUA pesanan
+ * (bukan /orders yang hanya pesanan milik akun login). Akun login harus ber-role admin.
  *
  * CATATAN: parsing response -> pesanan ERP (mapToErpOrder) belum final; menunggu
  * contoh bentuk response asli (jalankan `php artisan website:tarik --dry`).
@@ -54,7 +55,7 @@ class WebsiteOrderService
         if (!$this->token) $this->login();
 
         $res = Http::acceptJson()->withToken($this->token)->timeout(30)
-            ->get($this->base() . '/orders', $params);
+            ->get($this->base() . '/admin/orders', $params);
 
         if (!$res->successful()) {
             throw new \RuntimeException('Ambil pesanan gagal (HTTP ' . $res->status() . '): ' . $res->body());
@@ -67,7 +68,7 @@ class WebsiteOrderService
     {
         if (!$this->token) $this->login();
         $res = Http::acceptJson()->withToken($this->token)->timeout(30)
-            ->get($this->base() . '/orders/' . $id);
+            ->get($this->base() . '/admin/orders/' . $id);
         return $res->successful() ? ($res->json() ?? []) : [];
     }
 
@@ -76,12 +77,46 @@ class WebsiteOrderService
      */
     public function extractOrderList(array $raw): array
     {
-        foreach (['data', 'orders', 'items', 'result'] as $k) {
-            if (isset($raw[$k]) && is_array($raw[$k])) return array_values(array_filter($raw[$k], 'is_array'));
+        $node = $raw;
+        // Buka pembungkus {success, data:{...}} dan paginasi Laravel {data:{data:[...], total, ...}}.
+        // Berhenti begitu ketemu LIST order (elemen ke-0 berupa array) — jangan over-unwrap.
+        for ($i = 0; $i < 3; $i++) {
+            if (isset($node['data']) && is_array($node['data'])) {
+                if (isset($node['data'][0]) || $node['data'] === []) { $node = $node['data']; break; }
+                $node = $node['data']; // masih objek (mis. pembungkus paginasi) → buka lagi
+                continue;
+            }
+            break;
         }
-        // Sudah berupa list langsung?
-        if (isset($raw[0]) && is_array($raw[0])) return $raw;
+        if (isset($node[0]) && is_array($node[0])) return array_values($node);
+        foreach (['orders', 'items', 'result'] as $k) {
+            if (isset($node[$k]) && is_array($node[$k])) return array_values(array_filter($node[$k], 'is_array'));
+        }
         return [];
+    }
+
+    /**
+     * Ambil SEMUA pesanan lintas halaman (paginasi Laravel). Mengikuti last_page.
+     * Aman bila API tak berpaginasi (last_page absen → 1 halaman).
+     */
+    public function getAllOrders(array $params = []): array
+    {
+        if (!$this->token) $this->login();
+        $all = [];
+        $page = 1;
+        do {
+            $res = Http::acceptJson()->withToken($this->token)->timeout(30)
+                ->get($this->base() . '/admin/orders', $params + ['page' => $page]);
+            if (!$res->successful()) {
+                throw new \RuntimeException('Ambil pesanan gagal (HTTP ' . $res->status() . '): ' . $res->body());
+            }
+            $raw = $res->json() ?? [];
+            $all = array_merge($all, $this->extractOrderList($raw));
+            $meta = $raw['data'] ?? $raw;
+            $lastPage = (int) ($meta['last_page'] ?? 1);
+            $page++;
+        } while ($page <= $lastPage);
+        return $all;
     }
 
     /** Ambil nilai pertama yang ada dari beberapa jalur (dot-notation). */
@@ -104,7 +139,7 @@ class WebsiteOrderService
     /**
      * Ubah 1 pesanan website -> array ternormalisasi siap dibuat jadi pesanan ERP.
      * SKU langsung: product.sku = sku_aroma ERP; kemasan -> ukuran -> sku_id "{sku}-{ukuran}-REG".
-     * Tahan dua bentuk: list /orders (items[].product.sku) & detail (item_produk[].sku).
+     * Tahan dua bentuk: list /admin/orders (items[].product.sku) & detail (item_produk[].sku).
      * Validasi tiap sku_id ke Master Produk; item tak dikenal ditandai di `unmatched`.
      */
     public function mapToErpOrder(array $o): array
@@ -203,9 +238,11 @@ class WebsiteOrderService
     }
 
     /**
-     * Gabungkan data DETAIL (buyer/alamat/ongkir/resi) ke hasil map LIST.
-     * Item & payment tetap dari LIST (sudah dikonfirmasi); detail hanya melengkapi
-     * field yang kosong. Aman bila bentuk detail belum pasti.
+     * Gabungkan data DETAIL ke hasil map LIST.
+     * PENTING: LIST /admin/orders TIDAK memuat product.sku (item cuma product_id + product_name),
+     * sedangkan DETAIL /admin/orders/{id} LENGKAP (item ber-product.sku, diskon, buyer, resi).
+     * Maka bila detail lengkap (ada items), detail dijadikan SUMBER UTAMA (re-map penuh).
+     * Bila detail ringkas/gagal, jatuh ke penambalan field kosong (perilaku lama).
      */
     public function mergeDetail(array $base, array $detailRaw): array
     {
@@ -213,14 +250,23 @@ class WebsiteOrderService
         // Detail bisa terbungkus {success,data:{...}}
         $d = $detailRaw['data'] ?? $detailRaw;
         if (isset($d[0]) && is_array($d[0])) $d = $d[0];
-        $md = $this->mapToErpOrder(is_array($d) ? $d : []);
+        if (!is_array($d)) return $base;
+        $md = $this->mapToErpOrder($d);
+
+        // Detail lengkap (punya items) → pakai hasil map detail (item ber-SKU). Jaga `paid`
+        // yang sudah dikonfirmasi dari LIST bila detail tak menyebut status bayar.
+        if (!empty($d['items']) && !empty($md['items'])) {
+            if (!empty($base['paid'])) $md['paid'] = true;
+            if (empty($md['external_order_id'])) $md['external_order_id'] = $base['external_order_id'];
+            return $md;
+        }
+
+        // Detail ringkas → tambal field kosong saja.
         foreach (['nama', 'no_hp', 'email'] as $f) {
             if (empty($base['buyer'][$f]) && !empty($md['buyer'][$f])) $base['buyer'][$f] = $md['buyer'][$f];
         }
         if (empty($base['resi']) && !empty($md['resi']))     $base['resi'] = $md['resi'];
         if (($base['ongkir'] ?? 0) == 0 && ($md['ongkir'] ?? 0) > 0) $base['ongkir'] = $md['ongkir'];
-        // Diskon voucher/poin sering hanya ada di DETAIL (LIST ringkas) — wajib ikut, kalau tidak
-        // omzet & kas kelebihan sebesar diskon.
         if (($base['diskon'] ?? 0) == 0 && ($md['diskon'] ?? 0) > 0) $base['diskon'] = $md['diskon'];
         foreach (['alamat', 'kurir'] as $f) {
             if (empty($base[$f]) && !empty($md[$f])) $base[$f] = $md[$f];
