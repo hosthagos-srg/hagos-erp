@@ -40,6 +40,7 @@ return [
     | Base URL contoh produksi: https://hagosperfume.com/api
     */
     'hagos_web' => [
+        'enabled'  => env('HAGOS_WEB_ENABLED', false), // KILL-SWITCH: false = integrasi mati
         'base_url' => env('HAGOS_WEB_BASE_URL', 'https://hagosperfume.com/api'),
         'login'    => env('HAGOS_WEB_LOGIN'),     // email/username akun service di website
         'password' => env('HAGOS_WEB_PASSWORD'),  // password akun service

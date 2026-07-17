@@ -17,6 +17,14 @@ class TarikPesananWebsite extends Command
 
     public function handle(WebsiteOrderService $svc): int
     {
+        // KILL-SWITCH: integrasi MATI kecuali HAGOS_WEB_ENABLED=true di .env. Default nonaktif
+        // supaya aman ikut `git pull` tanpa risiko jalan tak sengaja di produksi.
+        if (! config('services.hagos_web.enabled')) {
+            $this->warn('Integrasi tarik pesanan Website NONAKTIF.');
+            $this->line('Untuk mengaktifkan: set HAGOS_WEB_ENABLED=true di .env lalu `php artisan config:clear`.');
+            return self::SUCCESS;
+        }
+
         $this->info('Login ke website...');
         try { $svc->login(); $this->info('OK login, token diterima.'); }
         catch (\Throwable $e) { $this->error($e->getMessage()); return self::FAILURE; }
