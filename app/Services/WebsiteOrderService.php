@@ -171,7 +171,8 @@ class WebsiteOrderService
             'unmatched'       => $unmatched,
             'subtotal_produk' => round($subtotalProduk, 2),
             'ongkir'          => (float) $this->pick($o, ['shipping_cost', 'pengiriman.biaya_ongkir', 'pengiriman.total_ongkir', 'pembayaran.rincian_biaya.total_ongkir'], 0),
-            'diskon'          => (float) $this->pick($o, ['discount_amount', 'pembayaran.rincian_biaya.diskon_voucher', 'diskon'], 0),
+            'diskon'          => (float) $this->pick($o, ['discount_amount', 'pembayaran.rincian_biaya.diskon_voucher', 'diskon'], 0)
+                                  + (float) $this->pick($o, ['points_discount'], 0),
             'total_bayar'     => (float) $this->pick($o, ['final_total', 'pembayaran.rincian_biaya.total_keseluruhan'], 0),
             'resi'            => $this->pick($o, ['tracking_number', 'pengiriman.nomor_resi', 'no_resi']),
             'bank'            => $this->pick($o, ['bank', 'pembayaran.bank_tujuan']),
@@ -218,6 +219,9 @@ class WebsiteOrderService
         }
         if (empty($base['resi']) && !empty($md['resi']))     $base['resi'] = $md['resi'];
         if (($base['ongkir'] ?? 0) == 0 && ($md['ongkir'] ?? 0) > 0) $base['ongkir'] = $md['ongkir'];
+        // Diskon voucher/poin sering hanya ada di DETAIL (LIST ringkas) — wajib ikut, kalau tidak
+        // omzet & kas kelebihan sebesar diskon.
+        if (($base['diskon'] ?? 0) == 0 && ($md['diskon'] ?? 0) > 0) $base['diskon'] = $md['diskon'];
         foreach (['alamat', 'kurir'] as $f) {
             if (empty($base[$f]) && !empty($md[$f])) $base[$f] = $md[$f];
         }
@@ -261,8 +265,12 @@ class WebsiteOrderService
         $akun = $this->ensureAkunMidtrans();
         $subtotal = 0;
         foreach ($items as $i) $subtotal += $i['harga_satuan'] * $i['qty'];
+        // Diskon voucher/poin dari website: gmv tetap KOTOR, diskon_manual diisi, uang masuk = net.
+        // (konvensi ERP: omzet non-MP = gmv_kotor − diskon_manual). Guard: diskon tak boleh > subtotal.
+        $diskon = min((float) ($m['diskon'] ?? 0), $subtotal);
+        $net = $subtotal - $diskon;
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($m, $items, $akun, $subtotal) {
+        \Illuminate\Support\Facades\DB::transaction(function () use ($m, $items, $akun, $subtotal, $diskon, $net) {
             $header = \App\Models\PenjualanHeader::create([
                 'channel'           => 'Website',
                 'metode_pengiriman' => 'Dikirim',
@@ -270,8 +278,8 @@ class WebsiteOrderService
                 'status_pesanan'    => 'Menunggu',           // masuk antrean gudang racik
                 'status_pembayaran' => 'Lunas',              // hanya order paid yang ditarik
                 'akun_masuk'        => $akun,
-                'gmv_kotor'         => $subtotal,            // omzet = produk saja (ongkir diabaikan)
-                'diskon_manual'     => 0,
+                'gmv_kotor'         => $subtotal,            // omzet KOTOR produk (ongkir diabaikan)
+                'diskon_manual'     => $diskon,              // diskon voucher/poin website
                 'nama_pembeli'      => $m['buyer']['nama'] ?: 'Pelanggan Website',
                 'no_hp_pembeli'     => $m['buyer']['no_hp'],
                 'external_order_id' => $m['external_order_id'],
@@ -291,9 +299,9 @@ class WebsiteOrderService
                 ]);
             }
 
-            // Uang sudah diterima via Midtrans → catat masuk (sekali; anti-dobel via ref_id)
-            if ($subtotal > 0 && !\App\Models\MutasiKas::where('ref_id', $header->internal_id)->where('kategori', 'penjualan')->exists()) {
-                \App\Models\MutasiKas::catat($akun, 'masuk', $subtotal, 'penjualan', $header->internal_id, 'Penjualan Website · ' . ($m['buyer']['nama'] ?: $m['external_order_id']), null, $m['tgl_pesanan']);
+            // Uang sudah diterima via Midtrans → catat masuk NET (subtotal − diskon), anti-dobel via ref_id
+            if ($net > 0 && !\App\Models\MutasiKas::where('ref_id', $header->internal_id)->where('kategori', 'penjualan')->exists()) {
+                \App\Models\MutasiKas::catat($akun, 'masuk', $net, 'penjualan', $header->internal_id, 'Penjualan Website · ' . ($m['buyer']['nama'] ?: $m['external_order_id']), null, $m['tgl_pesanan']);
             }
 
             // CRM: hanya bila nama pembeli asli (bukan fallback)
