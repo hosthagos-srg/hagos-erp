@@ -82,8 +82,17 @@
                     </div>
 
                     <div class="border-t pt-6 mb-4">
-                        <h3 class="text-lg font-medium text-gray-900 mb-4">Daftar Aroma yang Diracik</h3>
-                        
+                        <div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+                            <h3 class="text-lg font-medium text-gray-900">Daftar Aroma yang Diracik</h3>
+                            <div class="flex items-end gap-2 bg-indigo-50 border border-indigo-100 rounded-md px-3 py-2">
+                                <div>
+                                    <label class="block text-[11px] font-medium text-indigo-700 mb-1">Isi jumlah botol (massal)</label>
+                                    <input type="number" min="1" x-model="bulkQty" class="w-24 text-sm border-gray-300 rounded-md border px-2 py-1.5 focus:ring-indigo-500 focus:border-indigo-500">
+                                </div>
+                                <button type="button" @click="applyBulkQty()" title="Set jumlah botol ini ke SEMUA baris aroma" class="inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-md text-white bg-indigo-600 hover:bg-indigo-700 whitespace-nowrap">Terapkan ke semua</button>
+                            </div>
+                        </div>
+
                         <template x-for="(aroma, index) in aromas" :key="aroma.id">
                             <div class="flex items-center space-x-4 mb-4 bg-gray-50 p-3 rounded-md border">
                                 <div class="flex-grow">
@@ -105,9 +114,14 @@
                             </div>
                         </template>
 
-                        <button type="button" @click="aromas.push({ id: Date.now(), bibit_id: '', qty: 1 })" class="mt-2 inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                            + Tambah Aroma Lain
-                        </button>
+                        <div class="mt-2 flex flex-wrap items-center gap-2">
+                            <button type="button" @click="aromas.push({ id: Date.now(), bibit_id: '', qty: parseInt(bulkQty) || 1 })" class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                + Tambah Aroma Lain
+                            </button>
+                            <button type="button" @click="addRows(5)" class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-600 bg-white hover:bg-gray-50">+ 5 baris</button>
+                            <button type="button" @click="addRows(10)" class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-600 bg-white hover:bg-gray-50">+ 10 baris</button>
+                            <span class="text-xs text-gray-400" x-text="`${aromas.length} baris aroma`"></span>
+                        </div>
                     </div>
 
                     <div class="pt-5 border-t border-gray-200 flex justify-end items-center space-x-4">
@@ -235,10 +249,24 @@
     <script>
         document.addEventListener('alpine:init', () => {
             Alpine.data('produksiApp', () => ({
-                tab: 'tester', 
+                tab: 'tester',
                 aromas: [{ id: Date.now(), bibit_id: '', qty: 1 }],
                 loading: false,
-                
+                bulkQty: 5,
+
+                // Isi jumlah botol yang sama ke SEMUA baris aroma sekaligus.
+                applyBulkQty() {
+                    const n = parseInt(this.bulkQty);
+                    if (!n || n < 1) return;
+                    this.aromas.forEach(a => a.qty = n);
+                },
+                // Tambah beberapa baris aroma kosong sekaligus.
+                addRows(n) {
+                    for (let i = 0; i < n; i++) {
+                        this.aromas.push({ id: Date.now() + i, bibit_id: '', qty: parseInt(this.bulkQty) || 1 });
+                    }
+                },
+
                 submitTesterForm() {
                     this.loading = true;
                     const form = document.getElementById('testerForm');

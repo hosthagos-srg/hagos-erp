@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kelola Pesanan - Hagos ERP</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
     <style>
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
@@ -278,7 +280,7 @@
       <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div class="fixed inset-0 bg-transparent transition-opacity" aria-hidden="true" onclick="shakeModal('tukarAromaModalBox')"></div>
         <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-        <div id="tukarAromaModalBox" class="relative z-10 inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+        <div id="tukarAromaModalBox" class="relative z-10 inline-block align-bottom bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
           <form id="tukarAromaForm" method="POST" action="">
             @csrf
             <input type="hidden" name="action" value="tukar_aroma">
@@ -296,7 +298,7 @@
                     </p>
                     <p class="text-sm mb-3">Aroma sekarang: <b id="tukarAromaSekarang" class="text-gray-800"></b></p>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Ganti ke aroma:</label>
-                    <select name="sku_id_baru" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-amber-500 focus:border-amber-500 sm:text-sm rounded-md" required>
+                    <select id="tukarAromaSelect" name="sku_id_baru" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-amber-500 focus:border-amber-500 sm:text-sm rounded-md" required>
                         <option value="">-- Pilih Aroma Pengganti --</option>
                         @foreach($produks as $prod)
                             <option value="{{ $prod->sku_id }}">{{ $prod->nama_produk }} - {{ $prod->ukuran_ml }}ml</option>
@@ -306,7 +308,7 @@
                 </div>
               </div>
             </div>
-            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse rounded-b-lg">
               <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-amber-600 text-base font-medium text-white hover:bg-amber-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">Konfirmasi Tukar</button>
               <button type="button" onclick="closeTukarAromaModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">Kembali</button>
             </div>
@@ -488,11 +490,19 @@
             box.classList.add('animate-shake');
         }
 
+        let tukarAromaTom = null;
         function openTukarAromaModal(internalId, detailId, aromaSekarang) {
             document.getElementById('tukarAromaForm').action = '/penjualan/' + internalId + '/status';
             document.getElementById('tukarDetailId').value = detailId;
             document.getElementById('tukarAromaSekarang').textContent = aromaSekarang;
             document.getElementById('tukarAromaModal').classList.remove('hidden');
+            // Aktifkan pencarian aroma (TomSelect) — sekali init, lalu reset pilihan tiap buka.
+            const sel = document.getElementById('tukarAromaSelect');
+            if (window.TomSelect && sel && !sel.tomselect) {
+                tukarAromaTom = new TomSelect(sel, { create: false, sortField: { field: 'text', direction: 'asc' } });
+            }
+            if (sel && sel.tomselect) sel.tomselect.clear();
+            else if (sel) sel.value = '';
         }
 
         function closeTukarAromaModal() {
