@@ -247,9 +247,11 @@ class HppService
         $shipped = is_null($isShipped) ? $cls['is_shipped'] : $isShipped;
         $l2 = ['gaji' => 0, 'shrink' => 0, 'bahan_packing' => 0, 'total' => 0];
         if ($shipped) {
-            $gaji = $this->k('KMP-GAJI', 3000);
-            // Shrink & bahan packing (bubble+lakban+resi) DIKELUARKAN dari HPP — kini Pengeluaran nyata.
-            // Gaji packing (tenaga kerja) TETAP di HPP. Harga master tetap utuh.
+            // Semua biaya fulfillment (gaji packing + shrink + bahan packing) DIKELUARKAN dari HPP —
+            // kini dicatat sebagai Pengeluaran nyata saat uang benar-benar keluar (cash-basis),
+            // supaya saldo cashflow sinkron & tak dobel. Harga master komponen tetap utuh.
+            // Gaji packing: tukang packing dibayar per botol Rp3.000 → catat di Pengeluaran "Gaji Packing".
+            $gaji = 0;   // dulu KMP-GAJI (3000)
             $shrink = 0; // dulu KMP-SHRINK (168)
             $bahan = 0;  // dulu KMP-PACK (1641)
             $l2 = [

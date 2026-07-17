@@ -74,8 +74,10 @@ Kolom numerik master sudah DECIMAL/INT — **jangan parsing/format string** saat
 ### `track_stok` harus dihormati
 Komponen konsumabel ber-`track_stok='Tidak'` (stiker, kartu, shrink, bahan packing) **tidak dilacak, tidak dipotong, tidak boleh minus**. Pernah ada bug: produksi tester hardcode potong stok stiker tester tanpa cek flag → stok minus terus & warning palsu. **Selalu gate pemotongan/warning stok pada `track_stok === 'Ya'`.**
 
-### Konsumabel keluar dari HPP
-Sejak 2026-07-09: sticker utama, kartu ucapan, shrink, bahan packing **di-nol-kan di HPP** (harga master tetap utuh) dan dicatat sebagai **Pengeluaran nyata** (kategori "Bahan Packing"). **Gaji packing tetap di HPP.** `komponen_usage` (potong stok) tak berubah. HPP order lama yang sudah tersimpan **tidak** dihitung ulang.
+### Biaya fulfillment keluar dari HPP
+Sejak 2026-07-09: sticker utama, kartu ucapan, shrink, bahan packing **di-nol-kan di HPP** (harga master tetap utuh) dan dicatat sebagai **Pengeluaran nyata** (kategori "Bahan Packing").
+Sejak 2026-07-17: **gaji packing juga keluar dari HPP** — tukang packing dibayar per botol Rp3.000, dicatat di **Pengeluaran → "Gaji Packing"** saat bayar (cash-basis) supaya saldo cashflow sinkron & tak dobel. HPP racik ke depan turun total Rp3.000/unit lagi.
+`komponen_usage` (potong stok) tak berubah. HPP order lama yang sudah tersimpan **tidak** dihitung ulang.
 
 ---
 
