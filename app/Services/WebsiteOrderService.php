@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Http;
 
 /**
  * Klien untuk MENARIK pesanan dari API website e-commerce Hagos (hagosperfume.com).
- * Alur: login (dapat JWT) -> GET /admin/orders (Bearer).
+ * Alur: login (dapat JWT) -> GET /orders (Bearer).
  *
  * CATATAN: parsing response -> pesanan ERP (mapToErpOrder) belum final; menunggu
  * contoh bentuk response asli (jalankan `php artisan website:tarik --dry`).
@@ -54,7 +54,7 @@ class WebsiteOrderService
         if (!$this->token) $this->login();
 
         $res = Http::acceptJson()->withToken($this->token)->timeout(30)
-            ->get($this->base() . '/admin/orders', $params);
+            ->get($this->base() . '/orders', $params);
 
         if (!$res->successful()) {
             throw new \RuntimeException('Ambil pesanan gagal (HTTP ' . $res->status() . '): ' . $res->body());
@@ -67,7 +67,7 @@ class WebsiteOrderService
     {
         if (!$this->token) $this->login();
         $res = Http::acceptJson()->withToken($this->token)->timeout(30)
-            ->get($this->base() . '/admin/orders/' . $id);
+            ->get($this->base() . '/orders/' . $id);
         return $res->successful() ? ($res->json() ?? []) : [];
     }
 
@@ -104,7 +104,7 @@ class WebsiteOrderService
     /**
      * Ubah 1 pesanan website -> array ternormalisasi siap dibuat jadi pesanan ERP.
      * SKU langsung: product.sku = sku_aroma ERP; kemasan -> ukuran -> sku_id "{sku}-{ukuran}-REG".
-     * Tahan dua bentuk: list /admin/orders (items[].product.sku) & detail (item_produk[].sku).
+     * Tahan dua bentuk: list /orders (items[].product.sku) & detail (item_produk[].sku).
      * Validasi tiap sku_id ke Master Produk; item tak dikenal ditandai di `unmatched`.
      */
     public function mapToErpOrder(array $o): array
