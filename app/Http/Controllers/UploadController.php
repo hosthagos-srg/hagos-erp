@@ -164,7 +164,9 @@ class UploadController extends Controller
 
         $countSaved = 0;
         $countDuplicate = 0;
+        $countSkipExisting = 0;
         $unmatched = [];
+        $createdThisRun = []; // internal_id pesanan yang DIBUAT di run upload ini (guard upload ulang)
 
         DB::beginTransaction();
         try {
@@ -248,12 +250,22 @@ class UploadController extends Controller
                             'gmv_kotor' => $price, // Simplified for prototype
                             'nama_pembeli' => $buyerName,
                         ]);
+                        $createdThisRun[$header->internal_id] = true;
                     } else {
-                        // Header sudah ada (pesanan multi-produk). Lengkapi resi bila belum terisi.
+                        // Header sudah ada. Lengkapi resi bila belum terisi (aman, informatif).
                         if (empty($header->no_resi) && !empty($noResi)) {
                             $header->no_resi = $noResi;
                             $header->save();
                         }
+                    }
+
+                    // GUARD UPLOAD ULANG: hanya tambah/akumulasi baris untuk pesanan yang DIBUAT di
+                    // run upload ini. Pesanan yang sudah ada dari upload sebelumnya JANGAN disentuh —
+                    // bisa jadi sudah dipecah (bundle → anak; SKU induk BUNDLE dihapus di splitBundle)
+                    // atau di-set mix — sehingga menambah lagi = baris & GMV DOBEL.
+                    if (!isset($createdThisRun[$header->internal_id])) {
+                        $countSkipExisting++;
+                        continue;
                     }
 
                     // Create Detail if not exist
@@ -287,6 +299,9 @@ class UploadController extends Controller
             $msg = "Berhasil mengimpor $countSaved baris pesanan baru. ";
             if ($countDuplicate > 0) {
                 $msg .= "($countDuplicate baris dilewati karena duplikat). ";
+            }
+            if ($countSkipExisting > 0) {
+                $msg .= "($countSkipExisting baris dilewati karena pesanannya sudah ada — tak diubah, aman untuk upload ulang). ";
             }
             if (count($unmatched) > 0) {
                 $msg .= "Terdapat " . count($unmatched) . " produk yang tidak dikenali SKU-nya.";
