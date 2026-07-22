@@ -273,4 +273,45 @@ class SaldoController extends Controller
             return redirect()->back()->with('error', 'Gagal transfer: ' . $e->getMessage());
         }
     }
+
+    /**
+     * Edit nominal transfer yang salah input. HANYA admin + wajib konfirmasi password.
+     * Update kedua kaki (transfer_keluar + transfer_masuk, ref sama) agar saldo tetap konsisten.
+     */
+    public function updateTransfer(Request $request)
+    {
+        $user = auth()->user();
+        if (! $user || $user->role !== 'admin') {
+            return redirect()->route('saldo.transfer_form')->with('error', '⛔ Hanya admin yang boleh mengedit transfer.');
+        }
+
+        $request->validate([
+            'ref'      => 'required|string',
+            'jumlah'   => 'required|numeric|min:1',
+            'password' => 'required|string',
+        ]);
+
+        if (! \Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
+            return redirect()->route('saldo.transfer_form')->with('error', '❌ Password salah — edit transfer dibatalkan.');
+        }
+
+        $legs = MutasiKas::where('ref_id', $request->ref)
+            ->whereIn('kategori', ['transfer_keluar', 'transfer_masuk'])->get();
+        if ($legs->isEmpty()) {
+            return redirect()->route('saldo.transfer_form')->with('error', 'Transfer tidak ditemukan.');
+        }
+
+        $jumlahLama = (float) ($legs->firstWhere('kategori', 'transfer_keluar')->jumlah ?? 0);
+        $jumlahBaru = (float) $request->jumlah;
+
+        DB::transaction(function () use ($legs, $jumlahBaru) {
+            foreach ($legs as $leg) {
+                $leg->jumlah = $jumlahBaru;
+                $leg->save();
+            }
+        });
+
+        return redirect()->route('saldo.transfer_form')->with('success',
+            '✅ Transfer diperbarui: Rp ' . number_format($jumlahLama, 0, ',', '.') . ' → Rp ' . number_format($jumlahBaru, 0, ',', '.') . '.');
+    }
 }

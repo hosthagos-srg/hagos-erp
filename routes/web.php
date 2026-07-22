@@ -78,6 +78,7 @@ Route::post('/saldo/modal/prive', [App\Http\Controllers\SaldoController::class, 
 Route::get('/saldo/withdrawal', [App\Http\Controllers\SaldoController::class, 'withdrawalForm'])->name('saldo.withdrawal_form');
 Route::get('/saldo/transfer', [App\Http\Controllers\SaldoController::class, 'transferForm'])->name('saldo.transfer_form');
 Route::post('/saldo/transfer', [App\Http\Controllers\SaldoController::class, 'transfer'])->name('saldo.transfer');
+Route::post('/saldo/transfer/edit', [App\Http\Controllers\SaldoController::class, 'updateTransfer'])->name('saldo.transfer.update');
 Route::post('/saldo/pengeluaran', [App\Http\Controllers\SaldoController::class, 'pengeluaran'])->name('saldo.pengeluaran');
 Route::post('/saldo/patungan', [App\Http\Controllers\SaldoController::class, 'patungan'])->name('saldo.patungan');
 Route::post('/saldo/opname-kas', [App\Http\Controllers\SaldoController::class, 'opnameKas'])->name('saldo.opname_kas');

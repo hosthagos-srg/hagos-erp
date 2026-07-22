@@ -85,6 +85,7 @@
                     <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Ke</th>
                     <th class="px-4 py-2 text-right text-xs text-gray-500 uppercase">Jumlah</th>
                     <th class="px-4 py-2 text-right text-xs text-gray-500 uppercase">Biaya</th>
+                    @if(auth()->user()?->role === 'admin')<th class="px-4 py-2 text-center text-xs text-gray-500 uppercase">Aksi</th>@endif
                 </tr></thead>
                 <tbody class="divide-y divide-gray-100">
                     @forelse($riwayat as $r)
@@ -94,9 +95,14 @@
                             <td class="px-4 py-2 text-gray-700">{{ $r->ke }}</td>
                             <td class="px-4 py-2 text-right font-semibold text-emerald-700 whitespace-nowrap">Rp {{ number_format($r->jumlah, 0, ',', '.') }}</td>
                             <td class="px-4 py-2 text-right text-gray-500 whitespace-nowrap">{{ $r->biaya > 0 ? 'Rp ' . number_format($r->biaya, 0, ',', '.') : '-' }}</td>
+                            @if(auth()->user()?->role === 'admin')
+                            <td class="px-4 py-2 text-center whitespace-nowrap">
+                                <button type="button" onclick="openEditTransfer('{{ $r->ref }}', {{ (int) $r->jumlah }}, @js($r->dari), @js($r->ke))" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">✏️ Edit</button>
+                            </td>
+                            @endif
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="px-4 py-6 text-center text-gray-400 italic">Belum ada transfer.</td></tr>
+                        <tr><td colspan="{{ auth()->user()?->role === 'admin' ? 6 : 5 }}" class="px-4 py-6 text-center text-gray-400 italic">Belum ada transfer.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -104,5 +110,49 @@
     </div>
 </div>
 </div>
+
+@if(auth()->user()?->role === 'admin')
+<div id="editTransferModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" style="display:none">
+    <div class="fixed inset-0 bg-gray-900/40" onclick="closeEditTransfer()"></div>
+    <div class="relative bg-white rounded-lg shadow-xl w-full max-w-sm">
+        <form method="POST" action="{{ route('saldo.transfer.update') }}">
+            @csrf
+            <input type="hidden" name="ref" id="etRef">
+            <div class="px-5 py-4 border-b">
+                <h3 class="font-semibold text-gray-900">✏️ Edit Transfer</h3>
+                <p class="text-xs text-gray-500" id="etContext"></p>
+            </div>
+            <div class="p-5 space-y-3">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nominal baru</label>
+                    <input type="number" name="jumlah" id="etJumlah" min="1" step="1" required class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password (konfirmasi admin)</label>
+                    <input type="password" name="password" required autocomplete="current-password" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Password akunmu">
+                </div>
+                <p class="text-xs text-amber-600">Kedua sisi transfer (keluar & masuk) diperbarui sekaligus agar saldo konsisten.</p>
+            </div>
+            <div class="px-5 py-3 bg-gray-50 flex justify-end gap-2 rounded-b-lg">
+                <button type="button" onclick="closeEditTransfer()" class="px-4 py-2 text-sm rounded-md border border-gray-300 bg-white hover:bg-gray-50">Batal</button>
+                <button type="submit" class="px-4 py-2 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-700 font-medium">Simpan</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+function openEditTransfer(ref, jumlah, dari, ke){
+    document.getElementById('etRef').value = ref;
+    document.getElementById('etJumlah').value = jumlah;
+    document.getElementById('etContext').textContent = dari + ' → ' + ke + ' · ' + ref;
+    var m = document.getElementById('editTransferModal');
+    m.classList.remove('hidden'); m.style.display = 'flex';
+}
+function closeEditTransfer(){
+    var m = document.getElementById('editTransferModal');
+    m.classList.add('hidden'); m.style.display = 'none';
+}
+</script>
+@endif
 </body>
 </html>
