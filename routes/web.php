@@ -182,6 +182,7 @@ Route::get('/laporan/diskon', [App\Http\Controllers\LaporanController::class, 'd
 Route::get('/laporan/afiliasi', [App\Http\Controllers\LaporanController::class, 'afiliasi'])->name('laporan.afiliasi');
 Route::get('/laporan/pajak', [App\Http\Controllers\LaporanController::class, 'pajak'])->name('laporan.pajak');
 Route::get('/laporan/bibit-terpakai', [App\Http\Controllers\LaporanBibitController::class, 'index'])->name('laporan.bibit');
+Route::get('/laporan/monitoring-harga-bibit', [App\Http\Controllers\MonitoringBibitController::class, 'index'])->name('laporan.monitoring_bibit');
 Route::get('/neraca', [App\Http\Controllers\NeracaController::class, 'index'])->name('neraca.index');
 Route::get('/biaya-marketplace', [App\Http\Controllers\BiayaMarketplaceController::class, 'index'])->name('biaya_marketplace.index');
 

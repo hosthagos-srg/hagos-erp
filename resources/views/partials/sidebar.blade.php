@@ -51,6 +51,7 @@
             ['route' => 'laporan.laba_produk', 'pattern' => 'laporan.laba_produk', 'label' => 'Laba per Aroma/Produk'],
             ['route' => 'laporan.bibit',   'pattern' => 'laporan.bibit', 'label' => 'Bibit Terpakai'],
             ['route' => 'laporan.perputaran_bibit', 'pattern' => 'laporan.perputaran_bibit', 'label' => 'Perputaran & Stok Mati'],
+            ['route' => 'laporan.monitoring_bibit', 'pattern' => 'laporan.monitoring_bibit', 'label' => 'Monitoring Harga Bibit'],
             ['route' => 'pelanggan.kinerja', 'pattern' => 'pelanggan.kinerja', 'label' => 'Kinerja Pelanggan/Reseller'],
             ['route' => 'laporan.retur',   'pattern' => 'laporan.retur', 'label' => 'Retur / Pembatalan'],
             ['route' => 'laporan.diskon',  'pattern' => 'laporan.diskon', 'label' => 'Diskon Diberikan'],
