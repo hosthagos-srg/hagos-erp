@@ -205,10 +205,33 @@ class LaporanController extends Controller
         $channels = DB::table('penjualan_headers')->where('status_pesanan', 'Batal')
             ->distinct()->orderBy('channel')->pluck('channel');
 
+        // Retur MARKETPLACE dari settlement: order dgn net_settlement NEGATIF (refund dipotong TikTok/Shopee).
+        // Uang sudah tercermin (net negatif); ini untuk VISIBILITAS + hitung rugi retur nyata.
+        $returMpQ = DB::table('penjualan_headers')
+            ->where('net_settlement', '<', 0)
+            ->where('status_pesanan', '!=', 'Batal');
+        if ($dari)   $returMpQ->whereDate('tgl_pesanan', '>=', $dari);
+        if ($sampai) $returMpQ->whereDate('tgl_pesanan', '<=', $sampai);
+        if ($channel) $returMpQ->where('channel', $channel);
+        $returMp = (clone $returMpQ)->orderByDesc('tgl_pesanan')
+            ->get(['internal_id', 'external_order_id', 'channel', 'tgl_pesanan', 'nama_pembeli', 'gmv_kotor', 'net_settlement'])
+            ->map(function ($h) {
+                $det = DB::table('penjualan_details as d')->leftJoin('master_produks as p', 'p.sku_id', '=', 'd.sku_id')
+                    ->where('d.internal_id', $h->internal_id)->get(['d.sku_id', 'd.qty', 'd.hpp_satuan', 'p.nama_produk']);
+                $h->items = $det;
+                $h->hpp_total = (float) $det->sum(fn($d) => (float) $d->hpp_satuan * (int) $d->qty);
+                // Rugi nyata = uang dikembalikan (|net|) + biaya produk yang sudah diracik (hangus)
+                $h->rugi = abs((float) $h->net_settlement) + $h->hpp_total;
+                return $h;
+            });
+        $returMpCount = $returMp->count();
+        $returMpRugi = (float) $returMp->sum('rugi');
+
         return view('laporan.retur', compact(
             'dari', 'sampai', 'channel', 'channels',
             'totalBatal', 'nilaiBatal', 'perAlasan', 'perChannel', 'detail',
-            'totalOrder', 'tingkatBatal', 'rusakQty', 'rusakNilai'
+            'totalOrder', 'tingkatBatal', 'rusakQty', 'rusakNilai',
+            'returMp', 'returMpCount', 'returMpRugi'
         ));
     }
 

@@ -26,10 +26,10 @@
             @csrf
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Dari (Saldo Marketplace) <span class="text-red-500">*</span></label>
-                <select name="dari_akun" required class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <select name="dari_akun" id="wdDari" onchange="wdCheck()" required class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="">-- Pilih Akun --</option>
                     @foreach($rows->where('tipe', 'Saldo MP') as $r)
-                        <option value="{{ $r->nama_akun }}">{{ $r->nama_akun }} (Rp {{ number_format($r->saldo, 0, ',', '.') }})</option>
+                        <option value="{{ $r->nama_akun }}" data-saldo="{{ (float) $r->saldo }}">{{ $r->nama_akun }} (Rp {{ number_format($r->saldo, 0, ',', '.') }})</option>
                     @endforeach
                 </select>
             </div>
@@ -45,13 +45,15 @@
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Jumlah (Rp) <span class="text-red-500">*</span></label>
-                    <input type="number" name="jumlah" min="1" step="1" required class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="number" name="jumlah" id="wdJumlah" min="1" step="1" oninput="wdCheck()" required class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal</label>
                     <input type="date" name="tanggal" value="{{ date('Y-m-d') }}" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
             </div>
+            <div id="wdWarn" class="hidden bg-amber-50 border border-amber-300 text-amber-800 text-xs rounded-md px-3 py-2"></div>
+            <p class="text-xs text-gray-500 -mt-2">💡 Hindari "kuras ke Rp 0". Sisakan sedikit buffer atau tarik yang sudah pasti cair — retur yang datang setelah penarikan bisa bikin saldo tak sinkron.</p>
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Catatan</label>
                 <input type="text" name="catatan" placeholder="opsional..." class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -91,5 +93,25 @@
     </div>
 </div>
 </div>
+<script>
+function wdCheck(){
+    var sel = document.getElementById('wdDari');
+    var opt = sel.options[sel.selectedIndex];
+    var saldo = opt ? parseFloat(opt.getAttribute('data-saldo') || 0) : 0;
+    var jml = parseFloat(document.getElementById('wdJumlah').value || 0);
+    var w = document.getElementById('wdWarn');
+    if (!opt || !opt.value || !jml) { w.classList.add('hidden'); return; }
+    var sisa = saldo - jml;
+    if (sisa < 0) {
+        w.textContent = '⚠ Jumlah melebihi saldo (Rp ' + saldo.toLocaleString('id-ID') + '). Saldo akan MINUS ' + Math.abs(sisa).toLocaleString('id-ID') + '. Cek lagi.';
+        w.classList.remove('hidden');
+    } else if (sisa === 0) {
+        w.textContent = '⚠ Ini menguras saldo ke Rp 0. Kalau ada retur menyusul, saldo bisa jadi tak sinkron. Pertimbangkan sisakan buffer.';
+        w.classList.remove('hidden');
+    } else {
+        w.classList.add('hidden');
+    }
+}
+</script>
 </body>
 </html>

@@ -68,6 +68,39 @@
         </div>
     </div>
 
+    {{-- Retur Marketplace dari settlement (net_settlement negatif) --}}
+    <div class="bg-white rounded-2xl ring-1 ring-rose-100 shadow-sm overflow-hidden mb-6">
+        <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+            <h2 class="font-bold text-gray-800 text-sm">↩️ Retur Marketplace (dari settlement)</h2>
+            <span class="text-xs text-gray-500">{{ $returMpCount }} order · total rugi <b class="text-rose-600">{{ $rp($returMpRugi) }}</b></span>
+        </div>
+        @if($returMpCount > 0)
+        <div class="px-5 py-2 text-xs text-gray-500 bg-rose-50/50">Uang sudah otomatis terpotong (net settlement negatif). Rugi = dana dikembalikan + biaya produk yang sudah diracik (hangus).</div>
+        <table class="min-w-full text-sm">
+            <thead class="bg-gray-50"><tr>
+                <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Order · Tgl</th>
+                <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Produk</th>
+                <th class="px-4 py-2 text-right text-xs text-gray-500 uppercase">Net Settlement</th>
+                <th class="px-4 py-2 text-right text-xs text-gray-500 uppercase">HPP Hangus</th>
+                <th class="px-4 py-2 text-right text-xs text-gray-500 uppercase">Rugi</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-100">
+                @foreach($returMp as $r)
+                <tr>
+                    <td class="px-4 py-2"><div class="font-medium text-gray-800">{{ $r->external_order_id }}</div><div class="text-xs text-gray-400">{{ $r->channel }} · {{ \Illuminate\Support\Carbon::parse($r->tgl_pesanan)->format('d/m/Y') }}</div></td>
+                    <td class="px-4 py-2 text-gray-700">@foreach($r->items as $it)<div class="text-xs">{{ $it->nama_produk ?? $it->sku_id }} ×{{ $it->qty }}</div>@endforeach</td>
+                    <td class="px-4 py-2 text-right text-rose-600 whitespace-nowrap">{{ $rp($r->net_settlement) }}</td>
+                    <td class="px-4 py-2 text-right text-gray-500 whitespace-nowrap">{{ $rp($r->hpp_total) }}</td>
+                    <td class="px-4 py-2 text-right font-semibold text-rose-700 whitespace-nowrap">{{ $rp($r->rugi) }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+        @else
+        <div class="px-5 py-6 text-center text-gray-400 italic text-sm">Tidak ada retur marketplace pada periode ini.</div>
+        @endif
+    </div>
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         {{-- Per alasan --}}
         <div class="bg-white rounded-2xl ring-1 ring-gray-100 shadow-sm overflow-hidden">
