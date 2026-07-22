@@ -81,8 +81,9 @@
                 <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Order · Tgl</th>
                 <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Produk</th>
                 <th class="px-4 py-2 text-right text-xs text-gray-500 uppercase">Net Settlement</th>
-                <th class="px-4 py-2 text-right text-xs text-gray-500 uppercase">HPP Hangus</th>
+                <th class="px-4 py-2 text-right text-xs text-gray-500 uppercase">HPP</th>
                 <th class="px-4 py-2 text-right text-xs text-gray-500 uppercase">Rugi</th>
+                <th class="px-4 py-2 text-center text-xs text-gray-500 uppercase">Barang</th>
             </tr></thead>
             <tbody class="divide-y divide-gray-100">
                 @foreach($returMp as $r)
@@ -90,8 +91,28 @@
                     <td class="px-4 py-2"><div class="font-medium text-gray-800">{{ $r->external_order_id }}</div><div class="text-xs text-gray-400">{{ $r->channel }} · {{ \Illuminate\Support\Carbon::parse($r->tgl_pesanan)->format('d/m/Y') }}</div></td>
                     <td class="px-4 py-2 text-gray-700">@foreach($r->items as $it)<div class="text-xs">{{ $it->nama_produk ?? $it->sku_id }} ×{{ $it->qty }}</div>@endforeach</td>
                     <td class="px-4 py-2 text-right text-rose-600 whitespace-nowrap">{{ $rp($r->net_settlement) }}</td>
-                    <td class="px-4 py-2 text-right text-gray-500 whitespace-nowrap">{{ $rp($r->hpp_total) }}</td>
+                    <td class="px-4 py-2 text-right whitespace-nowrap {{ $r->outcome === 'layak' ? 'text-emerald-600 line-through' : 'text-gray-500' }}">{{ $rp($r->hpp_total) }}</td>
                     <td class="px-4 py-2 text-right font-semibold text-rose-700 whitespace-nowrap">{{ $rp($r->rugi) }}</td>
+                    <td class="px-4 py-2 text-center whitespace-nowrap">
+                        @if($r->handled)
+                            @if($r->outcome === 'layak')
+                                <span class="inline-block px-2 py-1 rounded text-xs font-medium bg-emerald-100 text-emerald-700">↺ Layak jual (masuk stok)</span>
+                            @else
+                                <span class="inline-block px-2 py-1 rounded text-xs font-medium bg-gray-200 text-gray-600">✕ Rusak/loss</span>
+                            @endif
+                        @else
+                            <div class="flex gap-1 justify-center">
+                                <form method="POST" action="{{ route('laporan.retur_mp_handle', $r->internal_id) }}" onsubmit="return confirm('Tandai barang LAYAK JUAL? Akan masuk stok jadi & dipakai di penjualan berikutnya.')">
+                                    @csrf<input type="hidden" name="outcome" value="layak">
+                                    <button class="px-2 py-1 rounded text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-700">Layak jual</button>
+                                </form>
+                                <form method="POST" action="{{ route('laporan.retur_mp_handle', $r->internal_id) }}" onsubmit="return confirm('Tandai barang RUSAK/LOSS?')">
+                                    @csrf<input type="hidden" name="outcome" value="loss">
+                                    <button class="px-2 py-1 rounded text-xs font-medium bg-gray-500 text-white hover:bg-gray-600">Rusak</button>
+                                </form>
+                            </div>
+                        @endif
+                    </td>
                 </tr>
                 @endforeach
             </tbody>

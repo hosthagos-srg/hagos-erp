@@ -179,6 +179,7 @@ Route::get('/laporan/pl', [App\Http\Controllers\LaporanController::class, 'pl'])
 Route::get('/laporan/laba-produk', [App\Http\Controllers\LaporanController::class, 'labaProduk'])->name('laporan.laba_produk');
 Route::get('/laporan/perputaran-bibit', [App\Http\Controllers\LaporanController::class, 'perputaranBibit'])->name('laporan.perputaran_bibit');
 Route::get('/laporan/retur', [App\Http\Controllers\LaporanController::class, 'retur'])->name('laporan.retur');
+Route::post('/laporan/retur-mp/{internal_id}/handle', [App\Http\Controllers\LaporanController::class, 'handleReturMp'])->name('laporan.retur_mp_handle');
 Route::get('/laporan/diskon', [App\Http\Controllers\LaporanController::class, 'diskon'])->name('laporan.diskon');
 Route::get('/laporan/afiliasi', [App\Http\Controllers\LaporanController::class, 'afiliasi'])->name('laporan.afiliasi');
 Route::get('/laporan/pajak', [App\Http\Controllers\LaporanController::class, 'pajak'])->name('laporan.pajak');

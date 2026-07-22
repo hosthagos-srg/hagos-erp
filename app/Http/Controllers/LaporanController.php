@@ -220,8 +220,12 @@ class LaporanController extends Controller
                     ->where('d.internal_id', $h->internal_id)->get(['d.sku_id', 'd.qty', 'd.hpp_satuan', 'p.nama_produk']);
                 $h->items = $det;
                 $h->hpp_total = (float) $det->sum(fn($d) => (float) $d->hpp_satuan * (int) $d->qty);
-                // Rugi nyata = uang dikembalikan (|net|) + biaya produk yang sudah diracik (hangus)
-                $h->rugi = abs((float) $h->net_settlement) + $h->hpp_total;
+                // Status penanganan (dari log stok jadi): layak jual (masuk T11) / rusak (loss) / belum
+                $log = DB::table('stok_jadi_logs')->where('ref_id', $h->internal_id)->where('sumber', 'like', 'Retur MP%')->first();
+                $h->handled = (bool) $log;
+                $h->outcome = $log ? ($log->tipe === 'masuk' ? 'layak' : 'loss') : null;
+                // Rugi: kalau LAYAK JUAL barang balik jadi stok (rugi = |net| saja); loss/belum → + HPP hangus
+                $h->rugi = abs((float) $h->net_settlement) + ($h->outcome === 'layak' ? 0 : $h->hpp_total);
                 return $h;
             });
         $returMpCount = $returMp->count();
@@ -233,6 +237,48 @@ class LaporanController extends Controller
             'totalOrder', 'tingkatBatal', 'rusakQty', 'rusakNilai',
             'returMp', 'returMpCount', 'returMpRugi'
         ));
+    }
+
+    /**
+     * Tandai penanganan 1 retur marketplace: 'layak' (masuk stok jadi T11 → dipakai lagi saat jual)
+     * atau 'loss' (rusak/hangus). Idempoten via cek log Retur MP untuk order tsb.
+     */
+    public function handleReturMp(Request $request, $internal_id)
+    {
+        $outcome = $request->input('outcome');
+        if (! in_array($outcome, ['layak', 'loss'])) return back()->with('error', 'Pilihan retur tidak valid.');
+
+        $header = \App\Models\PenjualanHeader::where('internal_id', $internal_id)->firstOrFail();
+        if ((float) $header->net_settlement >= 0) return back()->with('error', 'Order ini bukan retur (net settlement tidak negatif).');
+        if (DB::table('stok_jadi_logs')->where('ref_id', $internal_id)->where('sumber', 'like', 'Retur MP%')->exists()) {
+            return back()->with('error', 'Retur order ini sudah pernah ditangani.');
+        }
+
+        DB::transaction(function () use ($internal_id, $outcome) {
+            foreach (\App\Models\PenjualanDetail::where('internal_id', $internal_id)->get() as $d) {
+                $qty = (int) $d->qty;
+                $hpp = (float) $d->hpp_satuan;
+                if ($outcome === 'layak') {
+                    // Masuk stok barang jadi (T11) — otomatis dipakai lebih dulu saat penjualan berikutnya.
+                    \App\Models\StokJadiLog::catat($d->sku_id, 'masuk', $qty, 'Retur MP (layak jual)', $hpp, $internal_id, auth()->user()->name ?? null);
+                    $p = \App\Models\MasterProduk::where('sku_id', $d->sku_id)->first();
+                    if ($p) {
+                        $oldStok = (int) $p->stok_t11; $oldHpp = (float) $p->hpp_t11;
+                        $newStok = $oldStok + $qty;
+                        $p->hpp_t11 = round($newStok > 0 ? (($oldStok * $oldHpp) + ($qty * $hpp)) / $newStok : $hpp, 2);
+                        $p->stok_t11 = $newStok;
+                        $p->save();
+                    }
+                } else {
+                    // Rusak/loss — modal hangus (konsisten dgn pelacakan barang rusak yang sudah ada).
+                    \App\Models\StokJadiLog::catat($d->sku_id, 'rusak', $qty, 'Retur MP (rusak/loss)', $hpp, $internal_id, auth()->user()->name ?? null);
+                }
+            }
+        });
+
+        return back()->with('success', $outcome === 'layak'
+            ? '✅ Retur ditandai LAYAK JUAL — barang masuk stok jadi, otomatis dipakai di penjualan berikutnya (tak racik ulang).'
+            : '✅ Retur ditandai RUSAK/LOSS — dicatat sebagai kerugian.');
     }
 
     /**
