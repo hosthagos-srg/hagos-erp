@@ -499,7 +499,11 @@ class UploadController extends Controller
                     ->where('kategori', 'penjualan')
                     ->selectRaw("SUM(CASE WHEN tipe='masuk' THEN jumlah ELSE -jumlah END) s")->value('s') ?? 0);
                 $delta = round($net - $existing, 2);
-                if (abs($delta) >= 1 && ($net > 0 || $existing > 0)) {
+                // Catat setiap perubahan bermakna, TERMASUK settlement yang langsung NEGATIF
+                // (refund/retur pada order yang belum pernah cair → existing = 0). Dulu ada klausa
+                // ($net > 0 || $existing > 0) yang diam-diam membuang kasus ini → saldo MP kelebihan
+                // sebesar nilai refund. delta = 0 tetap tak dicatat (abs < 1), jadi re-upload aman.
+                if (abs($delta) >= 1) {
                     \App\Models\MutasiKas::catat($akunMp, $delta > 0 ? 'masuk' : 'keluar', abs($delta), 'penjualan', $header->internal_id, 'Settlement ' . $platform . ' ' . $orderId . ($existing != 0 ? ' (koreksi)' : ''), null, $tglCair);
                 }
 
