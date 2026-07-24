@@ -42,6 +42,9 @@
             </div>
         </div>
 
+        @if(session('success'))<div class="mb-4 bg-green-100 border border-green-400 text-green-800 px-4 py-3 rounded">{{ session('success') }}</div>@endif
+        @if(session('error'))<div class="mb-4 bg-red-100 border border-red-400 text-red-800 px-4 py-3 rounded">{{ session('error') }}</div>@endif
+
         @if($perluCekCount > 0)
         <div class="bg-amber-50 border-l-4 border-amber-500 p-4 mb-6 shadow-sm rounded-r-md">
             <div class="flex items-start">
@@ -85,6 +88,12 @@
         <div class="bg-blue-50 border-l-4 border-blue-500 p-3 mb-6 shadow-sm rounded-r-md flex items-center justify-between gap-2">
             <p class="text-sm text-blue-800">↩️ <b>{{ $barangBalikCount }}</b> pesanan batal menunggu barang fisik kembali — konfirmasi "Barang Diterima" saat barang sampai.</p>
             <a href="{{ route('penjualan.perlu_barang_balik') }}" class="flex-shrink-0 text-xs font-semibold text-blue-800 bg-blue-100 hover:bg-blue-200 px-3 py-1 rounded-md">Buka Monitoring →</a>
+        </div>
+        @endif
+
+        @if($returMpCount > 0)
+        <div class="bg-rose-50 border-l-4 border-rose-500 p-3 mb-6 shadow-sm rounded-r-md">
+            <p class="text-sm text-rose-800">↩️ <b>{{ $returMpCount }}</b> pesanan <b>RETUR dari marketplace</b> (dana ditarik balik/refund) perlu ditangani. Cari baris berbadge <b class="text-rose-700">"↩️ Retur"</b> di daftar bawah → klik <b>"Terima Barang"</b> saat barang sampai (pilih layak jual / rusak). Uang sudah otomatis terpotong; ini untuk selamatkan modal & catat rugi.</p>
         </div>
         @endif
 
@@ -205,11 +214,14 @@
                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{{ $p->channel }}</td>
                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">Rp {{ number_format($p->gmv_kotor, 0, ',', '.') }}</td>
                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                    {{ $p->status_pesanan == 'Selesai Racik' ? 'bg-green-100 text-green-800' : 
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                    {{ $p->status_pesanan == 'Selesai Racik' ? 'bg-green-100 text-green-800' :
                                       ($p->status_pesanan == 'Batal' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800') }}">
                                     {{ $p->status_pesanan }}
                                 </span>
+                                @if($p->net_settlement < 0)
+                                    <div class="mt-1"><span class="px-2 inline-flex text-[10px] leading-4 font-semibold rounded-full bg-rose-100 text-rose-700">↩️ Retur MP</span></div>
+                                @endif
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                                 @php
@@ -230,7 +242,13 @@
                                 @endif
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                                {{ $p->net_settlement > 0 ? 'Rp ' . number_format($p->net_settlement, 0, ',', '.') : '—' }}
+                                @if($p->net_settlement < 0)
+                                    <span class="text-rose-600 font-semibold" title="Dana ditarik balik oleh marketplace (refund/retur)">−Rp {{ number_format(abs($p->net_settlement), 0, ',', '.') }}</span>
+                                @elseif($p->net_settlement > 0)
+                                    Rp {{ number_format($p->net_settlement, 0, ',', '.') }}
+                                @else
+                                    —
+                                @endif
                             </td>
                             <td class="px-4 py-4 text-sm font-medium">
                                 <div class="flex flex-col items-end gap-1">
@@ -245,6 +263,13 @@
                                             <button type="button" class="text-green-600 hover:text-green-900 whitespace-nowrap" onclick="openTerimaBarangModal('{{ $p->internal_id }}')">✓ Barang Diterima</button>
                                         @else
                                             <span class="text-green-600 text-xs whitespace-nowrap" title="Barang sudah masuk T11">✓ Diterima {{ \Illuminate\Support\Carbon::parse($p->tgl_retur_diterima)->format('d/m/Y') }}</span>
+                                        @endif
+                                    @endif
+                                    @if($p->net_settlement < 0)
+                                        @if(isset($returMpHandled[$p->internal_id]))
+                                            <span class="text-emerald-600 text-xs whitespace-nowrap" title="Retur marketplace sudah ditangani">✓ Retur ditangani</span>
+                                        @else
+                                            <button type="button" class="text-rose-600 hover:text-rose-900 whitespace-nowrap font-semibold" onclick="openTerimaReturModal('{{ $p->internal_id }}', '{{ $p->external_order_id ?? $p->internal_id }}')">📥 Terima Barang</button>
                                         @endif
                                     @endif
                                     @if($p->status_pesanan === 'Menunggu')
@@ -273,6 +298,37 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- Terima Barang Retur Marketplace -->
+    <div id="terimaReturModal" class="fixed z-50 inset-0 hidden items-center justify-center p-4" style="display:none">
+        <div class="fixed inset-0 bg-gray-900/40" onclick="closeTerimaReturModal()"></div>
+        <div class="relative bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div class="px-5 py-4 border-b">
+                <h3 class="font-semibold text-gray-900">📥 Terima Barang Retur</h3>
+                <p class="text-xs text-gray-500">Order <span id="trOrderId" class="font-medium"></span></p>
+            </div>
+            <div class="p-5 space-y-3">
+                <p class="text-sm text-gray-600">Barang retur sudah sampai? Cek kondisinya, lalu pilih:</p>
+                <form method="POST" action="" id="trFormLayak">
+                    @csrf<input type="hidden" name="outcome" value="layak">
+                    <button type="submit" class="w-full text-left px-4 py-3 rounded-md border border-emerald-300 bg-emerald-50 hover:bg-emerald-100">
+                        <div class="font-semibold text-emerald-800 text-sm">✓ Layak jual</div>
+                        <div class="text-xs text-emerald-700">Botol masih bagus/tersegel → masuk stok jadi, dipakai lagi di penjualan berikutnya. Modal terselamatkan.</div>
+                    </button>
+                </form>
+                <form method="POST" action="" id="trFormRusak">
+                    @csrf<input type="hidden" name="outcome" value="loss">
+                    <button type="submit" class="w-full text-left px-4 py-3 rounded-md border border-gray-300 bg-gray-50 hover:bg-gray-100">
+                        <div class="font-semibold text-gray-700 text-sm">✕ Rusak / tak layak (atau barang tak kembali)</div>
+                        <div class="text-xs text-gray-500">Sudah dibuka/dipakai/rusak, atau pembeli tak mengembalikan → dicatat sebagai kerugian (modal hangus).</div>
+                    </button>
+                </form>
+            </div>
+            <div class="px-5 py-3 bg-gray-50 flex justify-end rounded-b-lg">
+                <button type="button" onclick="closeTerimaReturModal()" class="px-4 py-2 text-sm rounded-md border border-gray-300 bg-white hover:bg-gray-50">Batal</button>
+            </div>
+        </div>
     </div>
 
     <!-- Tukar Aroma Modal (hanya untuk pesanan Menunggu / bibit kosong) -->
@@ -491,6 +547,19 @@
         }
 
         let tukarAromaTom = null;
+        function openTerimaReturModal(internalId, orderId) {
+            var url = '{{ url('laporan/retur-mp') }}/' + internalId + '/handle';
+            document.getElementById('trFormLayak').action = url;
+            document.getElementById('trFormRusak').action = url;
+            document.getElementById('trOrderId').textContent = orderId;
+            var m = document.getElementById('terimaReturModal');
+            m.classList.remove('hidden'); m.style.display = 'flex';
+        }
+        function closeTerimaReturModal() {
+            var m = document.getElementById('terimaReturModal');
+            m.classList.add('hidden'); m.style.display = 'none';
+        }
+
         function openTukarAromaModal(internalId, detailId, aromaSekarang) {
             document.getElementById('tukarAromaForm').action = '/penjualan/' + internalId + '/status';
             document.getElementById('tukarDetailId').value = detailId;

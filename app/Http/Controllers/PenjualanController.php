@@ -81,7 +81,16 @@ class PenjualanController extends Controller
             })
             ->distinct()->count(DB::raw('h.internal_id'));
 
-        return view('penjualan.index', compact('pesanans', 'perluCek', 'perluCekCount', 'barangBalikCount', 'channels', 'produks', 'alasanBatal', 'akuns', 'mixTetapSkus', 'perluAksiCount'));
+        // Retur marketplace: pesanan net_settlement NEGATIF (refund dipotong MP) → perlu ditangani
+        // (terima barang → layak jual / rusak). "handled" = sudah ada log StokJadiLog 'Retur MP%'.
+        $returMpHandled = DB::table('stok_jadi_logs')->where('sumber', 'like', 'Retur MP%')
+            ->whereNotNull('ref_id')->distinct()->pluck('ref_id')->flip();
+        $returMpCount = PenjualanHeader::where('net_settlement', '<', 0)
+            ->where('status_pesanan', '!=', 'Batal')
+            ->whereNotIn('internal_id', $returMpHandled->keys()->all() ?: ['-'])
+            ->count();
+
+        return view('penjualan.index', compact('pesanans', 'perluCek', 'perluCekCount', 'barangBalikCount', 'channels', 'produks', 'alasanBatal', 'akuns', 'mixTetapSkus', 'perluAksiCount', 'returMpHandled', 'returMpCount'));
     }
 
     /**
