@@ -60,6 +60,7 @@
                     <tr>
                         <th class="px-4 py-2 text-left">Pesanan</th>
                         <th class="px-4 py-2 text-left">Channel · Tgl Cair</th>
+                        <th class="px-4 py-2 text-left">Kenapa selisih?</th>
                         <th class="px-4 py-2 text-right">Net Settlement</th>
                         <th class="px-4 py-2 text-right">Tercatat di Kas</th>
                         <th class="px-4 py-2 text-right">Selisih</th>
@@ -68,11 +69,15 @@
                 <tbody class="divide-y divide-gray-100">
                     @foreach($gaps as $g)
                     <tr>
-                        <td class="px-4 py-2 font-medium text-gray-800">{{ $g->external_order_id }}</td>
-                        <td class="px-4 py-2 text-xs text-gray-500">{{ $g->channel }}<br>{{ $g->tgl_cair_saldo ? \Illuminate\Support\Carbon::parse($g->tgl_cair_saldo)->format('d/m/Y') : '—' }}</td>
-                        <td class="px-4 py-2 text-right {{ $g->net_settlement < 0 ? 'text-rose-600' : '' }}">{{ $rp($g->net_settlement) }}</td>
-                        <td class="px-4 py-2 text-right text-gray-500">{{ $rp($g->mutasi) }}</td>
-                        <td class="px-4 py-2 text-right font-semibold text-rose-700">{{ $rp($g->gap) }}</td>
+                        <td class="px-4 py-2 font-medium text-gray-800 align-top">{{ $g->external_order_id }}</td>
+                        <td class="px-4 py-2 text-xs text-gray-500 align-top">{{ $g->channel }}<br>{{ $g->tgl_cair_saldo ? \Illuminate\Support\Carbon::parse($g->tgl_cair_saldo)->format('d/m/Y') : '—' }}</td>
+                        <td class="px-4 py-2 align-top">
+                            <div class="text-xs font-semibold text-rose-700">{{ $g->sebab }}</div>
+                            <div class="text-xs text-gray-500 mt-0.5 max-w-xs">{{ $g->detail }}</div>
+                        </td>
+                        <td class="px-4 py-2 text-right align-top {{ $g->net_settlement < 0 ? 'text-rose-600' : '' }}">{{ $rp($g->net_settlement) }}</td>
+                        <td class="px-4 py-2 text-right text-gray-500 align-top">{{ $rp($g->mutasi) }}</td>
+                        <td class="px-4 py-2 text-right font-semibold text-rose-700 align-top">{{ $rp($g->gap) }}</td>
                     </tr>
                     @endforeach
                 </tbody>

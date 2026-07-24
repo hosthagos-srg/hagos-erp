@@ -129,6 +129,22 @@ class RekonsiliasiMpController extends Controller
                    'h.net_settlement', 'h.akun_masuk', DB::raw('COALESCE(m.mut,0) as mutasi')])
             ->map(function ($g) {
                 $g->gap = round((float) $g->net_settlement - (float) $g->mutasi, 2);
+                $net = (float) $g->net_settlement;
+                $mut = (float) $g->mutasi;
+                // Jelaskan SEBAB selisihnya, biar tak perlu telaah manual.
+                if (abs($mut) < 1 && $net < 0) {
+                    $g->sebab  = 'Refund / retur belum tercatat';
+                    $g->detail = 'Marketplace menarik dana (settlement negatif), tapi uangnya belum dikeluarkan dari saldo di ERP. Barangnya juga perlu ditandai di Laporan Retur (layak jual / rusak).';
+                } elseif (abs($mut) < 1 && $net > 0) {
+                    $g->sebab  = 'Settlement belum masuk kas';
+                    $g->detail = 'Pesanan sudah ditandai Cair, tapi uang masuknya belum tercatat ke saldo marketplace.';
+                } elseif ($net < $mut) {
+                    $g->sebab  = 'Koreksi settlement (nilai turun)';
+                    $g->detail = 'Nilai settlement berubah jadi lebih kecil (mis. refund sebagian). Selisihnya belum dipotong dari saldo.';
+                } else {
+                    $g->sebab  = 'Koreksi settlement (nilai naik)';
+                    $g->detail = 'Nilai settlement berubah jadi lebih besar. Kekurangannya belum ditambahkan ke saldo.';
+                }
                 return $g;
             });
 
