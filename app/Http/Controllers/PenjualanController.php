@@ -49,6 +49,17 @@ class PenjualanController extends Controller
             $query->where('status_pembayaran', 'Belum Cair');
         }
 
+        // Retur marketplace yang sudah ditangani (dari log stok jadi 'Retur MP%').
+        $returMpHandled = DB::table('stok_jadi_logs')->where('sumber', 'like', 'Retur MP%')
+            ->whereNotNull('ref_id')->distinct()->pluck('ref_id')->flip();
+
+        // Toggle dari banner: tampilkan HANYA pesanan retur marketplace yang belum ditangani.
+        if ($request->boolean('retur')) {
+            $query->where('net_settlement', '<', 0)
+                  ->where('status_pesanan', '!=', 'Batal')
+                  ->whereNotIn('internal_id', $returMpHandled->keys()->all() ?: ['-']);
+        }
+
         $pesanans = $query->paginate(50)->withQueryString();
         
         $channels = PenjualanHeader::select('channel')->distinct()->pluck('channel');
@@ -81,10 +92,7 @@ class PenjualanController extends Controller
             })
             ->distinct()->count(DB::raw('h.internal_id'));
 
-        // Retur marketplace: pesanan net_settlement NEGATIF (refund dipotong MP) → perlu ditangani
-        // (terima barang → layak jual / rusak). "handled" = sudah ada log StokJadiLog 'Retur MP%'.
-        $returMpHandled = DB::table('stok_jadi_logs')->where('sumber', 'like', 'Retur MP%')
-            ->whereNotNull('ref_id')->distinct()->pluck('ref_id')->flip();
+        // Jumlah retur marketplace yang belum ditangani (untuk banner). $returMpHandled dihitung di atas.
         $returMpCount = PenjualanHeader::where('net_settlement', '<', 0)
             ->where('status_pesanan', '!=', 'Batal')
             ->whereNotIn('internal_id', $returMpHandled->keys()->all() ?: ['-'])

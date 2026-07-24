@@ -92,8 +92,16 @@
         @endif
 
         @if($returMpCount > 0)
-        <div class="bg-rose-50 border-l-4 border-rose-500 p-3 mb-6 shadow-sm rounded-r-md">
-            <p class="text-sm text-rose-800">↩️ <b>{{ $returMpCount }}</b> pesanan <b>RETUR dari marketplace</b> (dana ditarik balik/refund) perlu ditangani. Cari baris berbadge <b class="text-rose-700">"↩️ Retur"</b> di daftar bawah → klik <b>"Terima Barang"</b> saat barang sampai (pilih layak jual / rusak). Uang sudah otomatis terpotong; ini untuk selamatkan modal & catat rugi.</p>
+        <div class="bg-rose-50 border-l-4 border-rose-500 p-3 mb-6 shadow-sm rounded-r-md flex items-center justify-between gap-3">
+            <p class="text-sm text-rose-800">↩️ <b>{{ $returMpCount }}</b> pesanan <b>RETUR dari marketplace</b> (dana ditarik balik/refund) perlu ditangani — klik <b>"Terima Barang"</b> saat barang sampai (pilih layak jual / rusak).</p>
+            <a href="{{ route('penjualan.index', ['retur' => 1]) }}" class="flex-shrink-0 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 px-3 py-1.5 rounded-md whitespace-nowrap">Lihat {{ $returMpCount }} pesanan retur →</a>
+        </div>
+        @endif
+
+        @if(request()->boolean('retur'))
+        <div class="mb-4 flex items-center justify-between bg-rose-100 border border-rose-200 rounded-md px-4 py-2">
+            <span class="text-sm text-rose-800 font-medium">Menampilkan hanya pesanan RETUR marketplace yang belum ditangani.</span>
+            <a href="{{ route('penjualan.index') }}" class="text-xs font-semibold text-rose-700 hover:underline">✕ Tampilkan semua</a>
         </div>
         @endif
 
