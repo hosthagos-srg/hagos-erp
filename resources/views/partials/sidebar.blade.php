@@ -39,7 +39,8 @@
             ['route' => 'saldo.modal_form',     'pattern' => 'saldo.modal_form',     'label' => 'Modal & Prive'],
             ['route' => 'saldo.withdrawal_form', 'pattern' => 'saldo.withdrawal_form', 'label' => 'Tarik Dana (WD)'],
             ['route' => 'saldo.transfer_form',  'pattern' => 'saldo.transfer_form',  'label' => 'Transfer Antar Akun'],
-            ['route' => 'rekonsiliasi.index',   'pattern' => 'rekonsiliasi.*',       'label' => 'Rekonsiliasi Marketplace'],
+            ['route' => 'rekonsiliasi.index',   'pattern' => 'rekonsiliasi.index',   'label' => 'Rekonsiliasi Marketplace'],
+            ['route' => 'rekonsiliasi.saldo',   'pattern' => 'rekonsiliasi.saldo*',  'label' => 'Cek Saldo MP (otomatis)'],
         ]],
         ['type' => 'group', 'label' => 'Karyawan', 'icon' => '👷', 'children' => [
             ['route' => 'karyawan.index', 'pattern' => 'karyawan.*', 'label' => 'Daftar Karyawan'],

@@ -230,5 +230,7 @@ Route::post('/pengaturan/reset-data', [App\Http\Controllers\PengaturanController
 // Rekonsiliasi Marketplace
 Route::get('/rekonsiliasi-mp', [App\Http\Controllers\RekonsiliasiMpController::class, 'index'])->name('rekonsiliasi.index');
 Route::post('/rekonsiliasi-mp', [App\Http\Controllers\RekonsiliasiMpController::class, 'store'])->name('rekonsiliasi.store');
+Route::get('/rekonsiliasi-mp/saldo', [App\Http\Controllers\RekonsiliasiMpController::class, 'saldo'])->name('rekonsiliasi.saldo');
+Route::post('/rekonsiliasi-mp/saldo/perbaiki', [App\Http\Controllers\RekonsiliasiMpController::class, 'perbaikiSaldo'])->name('rekonsiliasi.saldo_perbaiki');
 
 }); // ← akhir grup auth

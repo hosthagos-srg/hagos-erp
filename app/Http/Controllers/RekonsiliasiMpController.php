@@ -100,6 +100,78 @@ class RekonsiliasiMpController extends Controller
             ->with('success', 'Rekonsiliasi ' . $data['channel'] . ' tersimpan. Selisih: Rp ' . number_format($selisih, 0, ',', '.'));
     }
 
+    /**
+     * REKONSILIASI SALDO MP (otomatis). Membandingkan saldo marketplace di ERP vs saldo riil,
+     * lalu MENJELASKAN selisihnya lewat audit: tiap pesanan cair, net_settlement HARUS sama
+     * dengan Σ mutasi kas pesanan itu. Ketidakcocokan = pencatatan yang bolong (mis. refund
+     * yang gagal tercatat) — bisa diperbaiki otomatis.
+     */
+    public function saldo(Request $request)
+    {
+        $akuns = MasterAkunKas::where('tipe', 'Saldo MP')->orderBy('nama_akun')->get()->map(function ($a) {
+            $masuk  = (float) MutasiKas::where('akun', $a->nama_akun)->where('tipe', 'masuk')->sum('jumlah');
+            $keluar = (float) MutasiKas::where('akun', $a->nama_akun)->where('tipe', 'keluar')->sum('jumlah');
+            return (object) ['nama' => $a->nama_akun, 'saldo' => (float) $a->saldo_awal + $masuk - $keluar];
+        });
+
+        // Audit: net_settlement vs Σ mutasi kas per pesanan
+        $mutSub = DB::table('mutasi_kas')
+            ->select('ref_id', DB::raw("SUM(CASE WHEN tipe='masuk' THEN jumlah ELSE -jumlah END) as mut"))
+            ->where('kategori', 'penjualan')->whereNotNull('ref_id')->groupBy('ref_id');
+
+        $gaps = DB::table('penjualan_headers as h')
+            ->leftJoinSub($mutSub, 'm', 'm.ref_id', '=', 'h.internal_id')
+            ->whereNotNull('h.net_settlement')
+            ->where('h.status_pesanan', '!=', 'Batal')
+            ->whereRaw('ABS(h.net_settlement - COALESCE(m.mut,0)) >= 1')
+            ->orderByDesc('h.tgl_cair_saldo')
+            ->get(['h.internal_id', 'h.external_order_id', 'h.channel', 'h.tgl_cair_saldo',
+                   'h.net_settlement', 'h.akun_masuk', DB::raw('COALESCE(m.mut,0) as mutasi')])
+            ->map(function ($g) {
+                $g->gap = round((float) $g->net_settlement - (float) $g->mutasi, 2);
+                return $g;
+            });
+
+        $totalGap = (float) $gaps->sum('gap');
+
+        return view('rekonsiliasi.saldo', compact('akuns', 'gaps', 'totalGap'));
+    }
+
+    /** Perbaiki otomatis: catat mutasi selisih untuk tiap pesanan yang bolong. */
+    public function perbaikiSaldo(Request $request)
+    {
+        $mutSub = DB::table('mutasi_kas')
+            ->select('ref_id', DB::raw("SUM(CASE WHEN tipe='masuk' THEN jumlah ELSE -jumlah END) as mut"))
+            ->where('kategori', 'penjualan')->whereNotNull('ref_id')->groupBy('ref_id');
+
+        $gaps = DB::table('penjualan_headers as h')
+            ->leftJoinSub($mutSub, 'm', 'm.ref_id', '=', 'h.internal_id')
+            ->whereNotNull('h.net_settlement')
+            ->where('h.status_pesanan', '!=', 'Batal')
+            ->whereRaw('ABS(h.net_settlement - COALESCE(m.mut,0)) >= 1')
+            ->get(['h.internal_id', 'h.external_order_id', 'h.channel', 'h.tgl_cair_saldo',
+                   'h.net_settlement', 'h.akun_masuk', DB::raw('COALESCE(m.mut,0) as mutasi')]);
+
+        if ($gaps->isEmpty()) return back()->with('success', 'Tidak ada selisih pencatatan — semua sudah cocok.');
+
+        $n = 0; $total = 0;
+        DB::transaction(function () use ($gaps, &$n, &$total) {
+            foreach ($gaps as $g) {
+                $delta = round((float) $g->net_settlement - (float) $g->mutasi, 2);
+                if (abs($delta) < 1) continue;
+                $akun = $g->akun_masuk ?: (str_contains(strtolower($g->channel), 'shopee') ? 'Saldo Shopee Seller' : 'Saldo TikTok Shop');
+                MutasiKas::catat(
+                    $akun, $delta > 0 ? 'masuk' : 'keluar', abs($delta), 'penjualan', $g->internal_id,
+                    'Settlement ' . $g->external_order_id . ' (perbaikan rekonsiliasi)',
+                    auth()->user()->name ?? null, $g->tgl_cair_saldo ?: now()->toDateString()
+                );
+                $n++; $total += $delta;
+            }
+        });
+
+        return back()->with('success', "✅ {$n} pesanan diperbaiki. Total penyesuaian saldo: Rp " . number_format($total, 0, ',', '.') . '.');
+    }
+
     private function rentang(string $bulan): array
     {
         $p = Carbon::createFromFormat('Y-m', $bulan);
